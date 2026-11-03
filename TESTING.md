@@ -50,6 +50,10 @@ The player runs the CPU for up to 8 ms per animation frame and then shows video 
 
 `versions/tabcomp-1.0.html` is the file as it arrived. Its own `save` produces the same bytes **plus one trailing newline**. Argon's report gives the original as 617,766 characters, which is the size `save` reproduces, so the newline was most likely lost on the way from Argon to the studio. It isn't a flaw in the mechanism: from the first save on, every generation is byte-identical.
 
+## 1.0.2: TabKey™ 101
+
+The on-screen keyboard is built entirely by the core script and styled from `#tc-style`, so `save` reproduces it like everything else. `tests/verify.mjs` passes all 7 checks on 1.0.2, including byte-for-byte save identity. In a Pixel 7 emulation, typing `help` and `cat /README.TXT` (capitals via one-shot Shift) works. Shift and Ctrl are one-shot; a double-tap locks them, but only when the two taps are consecutive. Backspace, Space, the arrows and PgUp/PgDn auto-repeat when held. Cartridges are unaffected: the keyboard lives outside the `@@PLAYER` region.
+
 ## Measured
 
 - Interpreter: **~214 MIPS** (Chromium, desktop-class container). The live badge reads lower (38–78) because it measures while rendering.

@@ -2,7 +2,7 @@
 
 **TabComp™: It's Not Just a Tab. It's a Computer.** 💾
 
-**[▶ Boot TabComp](https://consciousnode.github.io/TabComp/)** (or download `index.html` and open it straight from disk, offline, forever)
+**[▶ Boot TabComp](https://consciousnode.github.io/TabComp/)** (or download `index.html` and open it straight from disk, offline, forever). On a phone, the TabKey™ 101 keyboard appears under the screen.
 
 A complete personal computer in **one HTML file**, under the ConsciousNode **Xinu** philosophy: single file, zero dependencies, offline-first, *constraint generates novelty*.
 
@@ -29,7 +29,8 @@ The full 1989-style manual is in [`docs/MANUAL.md`](docs/MANUAL.md). There's als
 
 | File | What |
 |---|---|
-| `index.html` | Current: **1.0.1** (identical to `versions/tabcomp-1.0.1.html`) |
+| `index.html` | Current: **1.0.2** (identical to `versions/tabcomp-1.0.2.html`) |
+| `versions/tabcomp-1.0.2.html` | Adds **TabKey™ 101**, an on-screen keyboard for phones and tablets (shown automatically on touch screens; toggle with ⌨ Keys) |
 | `versions/tabcomp-1.0.1.html` | 1.0 with the font fix, rebuilt by its own compiler |
 | `versions/tabcomp-1.0.html` | The original, as delivered |
 | `cartridges/TabBreakout.html` | Budded from 1.0.1 |
@@ -39,6 +40,6 @@ The full 1989-style manual is in [`docs/MANUAL.md`](docs/MANUAL.md). There's als
 
 - **Concept and direction:** Khamerron Kizer, ConsciousNode SoftWorks
 - **Written by:** Gemini 4 Argon, in one shot from a tiered spec
-- **Spec, testing and the 1.0.1 fix:** Kehai Interim (Claude). See [TESTING.md](TESTING.md)
+- **Spec, testing, the 1.0.1 fix and TabKey™ 101:** Kehai Interim (Claude). See [TESTING.md](TESTING.md)
 
 MIT License.

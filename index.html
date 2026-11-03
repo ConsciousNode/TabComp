@@ -107,6 +107,23 @@
     font-size: 11px;
     color: #7d89a3;
   }
+  /* TabKey(TM) 101 on-screen keyboard (1.0.2, Kehai Interim) */
+  .tk-board { display:none; flex-direction:column; gap:4px; padding:8px 6px 6px; margin-top:2px;
+    background:linear-gradient(#cfc6ab,#b9b095); border:2px solid #8f8670; border-radius:8px;
+    box-shadow: inset 0 1px 0 #efe7cf, 0 4px 10px rgba(0,0,0,0.6); touch-action:manipulation; }
+  .tk-board.tk-on { display:flex; }
+  .tk-row { display:flex; gap:4px; }
+  .tk-key { flex:1 1 0; min-width:0; height:clamp(30px,7.5vw,44px); border-radius:5px;
+    background:linear-gradient(#f4eedb,#ddd4b8); border:1px solid #8b8269; border-bottom-width:4px;
+    color:#2a2620; font:700 clamp(11px,3.2vw,15px) "Courier New",Courier,monospace;
+    display:flex; align-items:center; justify-content:center; padding:0;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation; cursor:pointer; }
+  .tk-key.tk-mod { background:linear-gradient(#bdb6a0,#a39b82); color:#1d1a15; font-size:clamp(9px,2.6vw,13px); }
+  .tk-key.tk-down { border-bottom-width:1px; transform:translateY(3px); background:#c9c0a4; }
+  .tk-key.tk-lit { background:linear-gradient(#ffe68a,#f0c84a); }
+  .tk-key.tk-lock { background:linear-gradient(#ffb070,#f08a3a); }
+  .tk-label { font:700 10px "Courier New",monospace; color:#5c5444; letter-spacing:1px; display:flex; justify-content:space-between; padding:0 2px; }
+
 </style>
 </head>
 <body>
@@ -3047,7 +3064,7 @@ class TabCompWasmJIT {
   });
 
   // Keyboard handling + Halt/Break key (Ctrl+C or Escape returns runaway app to shell)
-  window.addEventListener("keydown", function(e) {
+  function tcHandleKey(e) {
     sound.unlock();
     if ((e.ctrlKey && (e.key === "c" || e.key === "C")) || (e.key === "Escape" && cpu.procStack.length > 0)) {
       e.preventDefault();
@@ -3098,7 +3115,122 @@ class TabCompWasmJIT {
       }
       renderFramebufferToCanvas(cpu, ctx2d, imgData);
     }
-  });
+  }
+  window.addEventListener("keydown", tcHandleKey);
+
+  // TabKey(TM) 101: on-screen keyboard for touch screens (1.0.2, Kehai Interim).
+  // Built here from the core script so `save` reproduces it like everything else.
+  (function buildTabKey() {
+    const chassis = document.querySelector(".tc-chassis");
+    const controls = document.querySelector(".tc-controls");
+    if (!chassis) return;
+    const KC = { "-":189, "=":187, "[":219, "]":221, "\\":220, ";":186, "'":222, ",":188, ".":190, "/":191, "`":192, " ":32 };
+    const SH = { "`":"~", "1":"!", "2":"@", "3":"#", "4":"$", "5":"%", "6":"^", "7":"&", "8":"*", "9":"(", "0":")",
+                 "-":"_", "=":"+", "[":"{", "]":"}", "\\":"|", ";":":", "'":"\"", ",":"<", ".":">", "/":"?" };
+    const chars = function(str) { return str.split("").map(function(c) { return [c]; }); };
+    const ROWS = [
+      [["Esc","Escape",27,1.4]].concat(chars("`1234567890-="), [["⌫","Backspace",8,1.6,1]]),
+      [["Tab","Tab",9,1.5]].concat(chars("qwertyuiop[]\\")),
+      [["Ctrl","CTRL",0,1.8]].concat(chars("asdfghjkl;'"), [["Enter","Enter",13,2.1]]),
+      [["Shift","SHIFT",0,2.3]].concat(chars("zxcvbnm,./"), [["Shift","SHIFT",0,2.3]]),
+      [["PgUp","PageUp",33,1.2,1],["PgDn","PageDown",34,1.2,1],["Home","Home",36,1.2],["End","End",35,1.2],
+       ["Space"," ",32,4.5,1],["←","ArrowLeft",37,1,1],["↑","ArrowUp",38,1,1],["↓","ArrowDown",40,1,1],["→","ArrowRight",39,1,1]]
+    ];
+    let shift = 0, ctrl = 0; // 0 off, 1 one-shot, 2 locked (double-tap)
+    let lastMod = null, lastModT = 0; // a double-tap must be two taps of the same modifier in a row
+    const board = document.createElement("div");
+    board.className = "tk-board";
+    const label = document.createElement("div");
+    label.className = "tk-label";
+    label.innerHTML = "<span>TabKey™ 101</span><span>ConsciousNode SoftWorks</span>";
+    board.appendChild(label);
+    const capKeys = [], modKeys = { SHIFT: [], CTRL: [] };
+    function send(key, code) {
+      const isShift = shift > 0, isCtrl = ctrl > 0;
+      tcHandleKey({ key: key, keyCode: code, shiftKey: isShift, ctrlKey: isCtrl, altKey: false, preventDefault: function() {} });
+      if (shift === 1) shift = 0;
+      if (ctrl === 1) ctrl = 0;
+      lastMod = null;
+      refresh();
+    }
+    function refresh() {
+      ["SHIFT", "CTRL"].forEach(function(m) {
+        const v = m === "SHIFT" ? shift : ctrl;
+        modKeys[m].forEach(function(b) { b.classList.toggle("tk-lit", v === 1); b.classList.toggle("tk-lock", v === 2); });
+      });
+      capKeys.forEach(function(o) {
+        const c = o.ch;
+        o.el.textContent = shift ? (SH[c] || c.toUpperCase()) : c;
+      });
+    }
+    ROWS.forEach(function(row) {
+      const r = document.createElement("div");
+      r.className = "tk-row";
+      row.forEach(function(k) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "tk-key";
+        b.style.flexGrow = String(k[3] || 1);
+        b.textContent = k[0];
+        if (k.length === 1) {
+          capKeys.push({ el: b, ch: k[0] });
+        } else {
+          b.classList.add("tk-mod");
+          if (k[1] === "SHIFT" || k[1] === "CTRL") modKeys[k[1]].push(b);
+        }
+        let repeatT = null;
+        const press = function() {
+          if (k.length === 1) {
+            const c = k[0];
+            let key = c, code = KC[c] || c.toUpperCase().charCodeAt(0);
+            if (shift) key = SH[c] || c.toUpperCase();
+            if (ctrl) key = c; // Ctrl+letter: the handler maps s, q and c
+            send(key, code);
+          } else if (k[1] === "SHIFT" || k[1] === "CTRL") {
+            const now = Date.now(), dbl = lastMod === k[1] && now - lastModT < 350;
+            lastMod = k[1]; lastModT = now;
+            if (k[1] === "SHIFT") shift = dbl ? 2 : (shift ? 0 : 1);
+            else ctrl = dbl ? 2 : (ctrl ? 0 : 1);
+            refresh();
+          } else {
+            send(k[1], k[2]);
+          }
+        };
+        const stop = function() {
+          b.classList.remove("tk-down");
+          if (repeatT) { clearTimeout(repeatT); repeatT = null; }
+        };
+        b.addEventListener("pointerdown", function(ev) {
+          ev.preventDefault();
+          b.classList.add("tk-down");
+          press();
+          if (k[4]) {
+            const rep = function() { press(); repeatT = setTimeout(rep, 70); };
+            repeatT = setTimeout(rep, 420);
+          }
+        });
+        b.addEventListener("pointerup", stop);
+        b.addEventListener("pointerleave", stop);
+        b.addEventListener("pointercancel", stop);
+        b.addEventListener("contextmenu", function(ev) { ev.preventDefault(); });
+        r.appendChild(b);
+      });
+      board.appendChild(r);
+    });
+    chassis.appendChild(board);
+    if (controls) {
+      const t = document.createElement("button");
+      t.type = "button";
+      t.className = "tc-btn";
+      t.title = "On-screen keyboard";
+      t.textContent = "⌨ Keys";
+      t.addEventListener("click", function() { board.classList.toggle("tk-on"); });
+      controls.appendChild(t);
+    }
+    const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    if (coarse) board.classList.add("tk-on");
+    refresh();
+  })();
 
   // Boot sequence: POST memory count + MIPS report + Bootstrap status + Launch /bin/sh
   let bootFrame = 0;
