@@ -1,6 +1,6 @@
 # TabComp™ System Architecture (`docs/ARCHITECTURE.md`)
 
-**ConsciousNode SoftWorks Engineering Architecture — Document Part #TC-89-ARCH (Rev. 1.2)**
+**ConsciousNode SoftWorks Engineering Architecture — Document Part #TC-89-ARCH (Rev. 1.3 — "It Runs DOOM")**
 
 ---
 
@@ -8,11 +8,11 @@
 
 ```
 +=============================================================================+
-|                           tabcomp.html (Single File)                        |
+|                           index.html (Single File)                          |
 |  +-----------------------+  +-----------------------+  +-----------------+  |
 |  |  <style id="tc-style">|  | <script id="tc-disk"> |  | <canvas 320x200>|  |
 |  |  Chassis, TabPad &    |  | Base64 Virtual Disk   |  | Nearest-Neighbor|  |
-|  |  /*@@TABKEY_STYLE*/   |  | (/src, /bin, /home)   |  | Tear-Free CRT   |  |
+|  |  /*@@TABKEY_STYLE*/   |  | (/src,/bin,/lib,/inc) |  | Tear-Free CRT   |  |
 |  +-----------+-----------+  +-----------+-----------+  +--------+--------+  |
 |              |                          |                       ^           |
 |              v                          v                       |           |
@@ -24,75 +24,86 @@
 |  |                                                                       |  |
 |  |  2. /*@@PLAYER_BEGIN*/ ... /*@@PLAYER_END*/ (Single Source of Truth)  |  |
 |  |     +--------------------------------------------------------------+  |  |
-|  |     | const VERSION = "1.2";                                       |  |  |
-|  |     | Shared WebAssembly.Memory (17 pages = 1,114,112 bytes)       |  |  |
-|  |     |   0x000000..0x04FFFF : Program Code & Inline Strings         |  |  |
-|  |     |   0x050000..0x0BFFFF : Global Variables & Static Arrays      |  |  |
-|  |     |   0x0C0000..0x0DEFFF : Full-Descending Stack (SP=0x0DF000)   |  |  |
-|  |     |   0x0EF000..0x0EF2FF : 8x8 ASCII Bitmap Font ROM (768 B)     |  |  |
-|  |     |   0x0F0000..0x0FF9FF : 320x200 256-Colour Live VRAM (64 KB)  |  |  |
-|  |     |   0x0FFA00..0x0FFD3F : RGB Palette, Timer, VSync, 4-Ch Sound |  |  |
-|  |     |   0x100000..0x10004B : Shared CPU GPRs R0..R15, PC, FLAGS    |  |  |
+|  |     | const VERSION = "1.3";                                       |  |  |
+|  |     | Shared WebAssembly.Memory (257 pages = 16,842,752 bytes)     |  |  |
+|  |     |   0x0000000..0x004FFFF : Program Code & Inline Strings       |  |  |
+|  |     |   0x0050000..0x00BFFFF : TabTalk Globals & Static Arrays     |  |  |
+|  |     |   0x00C0000..0x00DEFFF : TabTalk Stack (SP=0x00DF000)        |  |  |
+|  |     |   0x00EF000..0x00EF2FF : 8x8 ASCII Bitmap Font ROM (768 B)   |  |  |
+|  |     |   0x00F0000..0x00FF9FF : 320x200 256-Colour Live VRAM (64KB) |  |  |
+|  |     |   0x00FFA00..0x00FFD3F : RGB Palette, Timer, VSync, 4-Ch Snd |  |  |
+|  |     |   0x0100000..0x0EFFFFF : C89 .data/.bss + 14 MiB Heap (DOOM) |  |  |
+|  |     |   0x0F00000..0x0FF0000 : C89 Stack (SP=0x0FF0000)            |  |  |
+|  |     |   0x1000000..0x100004B : Shared CPU GPRs R0..R15, PC, FLAGS  |  |  |
 |  |     +--------------------------------------------------------------+  |  |
-|  |     | Clock Governor (cpu.runGovernedSlice: MAX or 1..1000 MIPS,   |  |  |
-|  |     |   signed overshoot carry-forward & 100 ms debt cap, SYS 22)  |  |  |
+|  |     | Native Wasm i64 Fixed-Point & Multiply (FXMUL/FXDIV/MULH/U)  |  |  |
+|  |     | Seekable VFS File Table (SYS 1..4, SYS 23..26)               |  |  |
+|  |     | Key-Event Edge Queue (keydown/keyup -> SYS 27 KEYEVENT)      |  |  |
+|  |     | Clock Governor + Machine-Governed TICKS_MS (SYS 22, SYS 28)  |  |  |
+|  |     | 4-Ch Synth + 8-Bit PCM Audio Engine (SYS 30 PCM_PLAY)        |  |  |
 |  |     | Tear-Free Present Buffer (cpu.presentBuf = Uint8Array(64000))|  |  |
-|  |     | TabCompWasmJIT (ON by default; startPc tag check on lookup)  |  |  |
-|  |     | TabPad™ Builder (buildTabPad: D-pad + Space/Enter/Esc/R/Q)   |  |  |
-|  |     | TabCompFS & TabCompSound                                     |  |  |
+|  |     | TabCompWasmJIT (ON by default; 24-bit startPc tag check)     |  |  |
+|  |     | TabPad™ Builder (D-pad + Fire/Ctrl + Space/Enter/Esc/R/Q)    |  |  |
 |  |     +--------------------------------------------------------------+  |  |
 |  |                                                                       |  |
-|  |  3. Stage 0 Boot ROM Compiler (compileTabTalk in JS)                  |  |
-|  |  4. Self-Replicating Save & Cartridge Budding Engine                  |  |
-|  |  5. TabKey™ 101 On-Screen Keyboard & tcHandleKey Dispatcher           |  |
-|  |  6. Automated 16-Part Verification Hook (window.TABCOMP_SELFTEST)     |  |
+|  |  3. Stage 0 Boot ROM Compiler (compileTabTalk in JS — for cc.tt only) |  |
+|  |  4. Host File Import (📂 Import + Drag-and-Drop -> /home/<name>)      |  |
+|  |  5. Self-Replicating Save & Cartridge Budding (--gpl support)         |  |
+|  |  6. Automated 19-Part Verification Hook (window.TABCOMP_SELFTEST)     |  |
 |  +-----------------------------------------------------------------------+  |
 +=============================================================================+
 ```
 
 ---
 
-## 2. Startup Hardware Region Assertion & Font Placement (`0x0EF000`)
+## 2. 16 MiB Shared-Memory Expansion (`0x0000000` – `0x0FFFFFF`)
 
-1. **`FONT_ROM` lives at `0x0EF000–0x0EF2FF` (`768` bytes)** right below `VRAM` (`0x0F0000`).
-2. **Startup Bounds & Overlap Assertion (`verifyHardwareRegions`)**: Inside `initHardwareMemory(cpu)`, all 6 hardware regions (`FONT_ROM: 0x0EF000..0x0EF2FF`, `VRAM: 0x0F0000..0x0FF9FF`, `PALETTE: 0x0FFA00..0x0FFCFF`, `TIMER_MS: 0x0FFD00..0x0FFD03`, `VSYNC_CNT: 0x0FFD04..0x0FFD07`, `SOUND_REGS: 0x0FFD20..0x0FFD3F`) are checked at boot to ensure every region lies strictly within `0x000000–0x0FFFFF` and no two regions overlap.
-
----
-
-## 3. Selectable Clock Governor & Front-Panel `TURBO` Button (`SYS 22`)
-
-To guarantee predictable execution speed across desktop and mobile hardware while preserving full-speed mode:
-1. **Two Operating Modes**:
-   - **`MAX` (`clockRate = 0`, Turbo ON)**: Runs `stepBatch(20000)` as fast as the host allows within each `8.0 ms` animation slice.
-   - **Fixed Rate (`clockRate = 1..1000` MIPS, default compatibility clock `25` MIPS when Turbo is OFF)**: `advanceClock(now)` computes `dt = now - clockLastTime` from `performance.now()` and adds `dt * clockRate * 1000` instructions to `cpu.clockBudget`.
-2. **Exact Overshoot Carry-Forward & 100 ms Debt Cap**:
-   - Each call to `stepBatch(batch)` subtracts the *actual* number of instructions executed (`this.clockBudget -= ran`). If a 512-iteration Wasm JIT block overshoots `batch`, `this.clockBudget` goes slightly negative and carries that overshoot into the next slice so the long-run instruction rate is exact (verified within `< 0.03%` of `25,000,000` instructions over 1 second in Self-Test #14).
-   - Positive `this.clockBudget` is capped at `100 ms` of instructions (`clockRate * 100,000`) so a backgrounded browser tab never sprints when foregrounded (verified in Self-Test #15).
-3. **Host Lag Detection**: If a fixed `clockRate` cannot be sustained by the host CPU for more than `1000 ms` of continuous load, `cpu.deviceLagMips` records the achieved rate and updates the badge to `CLOCK: <N> MIPS (device: <actual>)`.
-4. **Hardware/Shell Synchronization**: Clicking `#tc-btn-turbo` and running `clock` (`SYS 22`) both call `cpu.setClock(rate)`, updating the LED (`#tc-turbo-led`) and badge (`#tc-mips-badge`) via `cpu.hooks.onClockChange`.
+1. **257-Page `WebAssembly.Memory` (`16,842,752` bytes):**
+   - Pages `0..255` (`16,777,216` bytes, `0x0000000..0x0FFFFFF`) are guest physical RAM (`RAM_MASK = 0xFFFFFF`).
+   - Page `256` (`0x1000000..0x100004B`, `CPU_STATE_BASE = 0x1000000`) holds the shared CPU register file (`R0..R15`), `PC`, `FLAGS`, and `CODE_DIRTY`.
+2. **100% Backward Compatibility with 1.2.2:**
+   - The entire low 1 MiB (`0x0000000..0x00FFFFF`), including `FONT_ROM` (`0x00EF000`), `VRAM` (`0x00F0000`), `PALETTE` (`0x00FFA00`), `TIMER_MS` (`0x00FFD00`), `VSYNC_CNT` (`0x00FFD04`), and `SOUND_REGS` (`0x00FFD20`), is untouched.
+   - `EXEC` (`SYS 9`) snapshots low 1 MiB (`0x000000..0x0E0000`) plus only the active high-memory range (`0x0100000..highUsedEnd`) and stack (`0x0FE0000..0x0FF0000`) so nested process invocation (`sh -> c89 -> cpp/cc1/ld`) is fast and restores parent state cleanly.
 
 ---
 
-## 4. Tear-Free Display Presentation (`presentBuf` on `YIELD`)
+## 3. Two-Tier Self-Hosted Compiler Architecture (`Stage 0 -> /bin/cc -> /bin/c89`)
 
-1. **`cpu.presentBuf` (`Uint8Array(64000)`)**: Lives outside TabComp RAM.
-2. **Present on `SYS 10 (YIELD)`**: When a TabTalk program finishes drawing a frame and executes `yield()`, `cpu.presentNow()` copies `VRAM` (`0x0F0000..0x0FF9FF`) into `cpu.presentBuf` and exits the current slice cleanly.
-3. **100 ms Non-Yielding Fallback**: If a non-yielding task runs for more than `100 ms` without calling `yield()`, `cpu.presentFallbackIfStale(now)` updates `cpu.presentBuf`.
-4. **Canvas Renderer Isolation**: `renderFramebufferToCanvas()` reads exclusively from `cpu.presentBuf`.
+TabComp™ 1.3 strictly obeys the One Architectural Rule: **JavaScript implements only the hardware and the Stage 0 TabTalk bootstrap compiler.** The entire C89 toolchain is software written in TabTalk, compiled by `/bin/cc`, and running on the TabComp CPU:
+
+```
+  [Stage 0 JS Boot ROM]
+           |  (used only during `rebootstrap` Stage 1)
+           v
+   /src/cc.tt  ==(/bin/cc)==>  /bin/cc  (Self-Hosting Fixed Point: Stage 1 == 2 == 3)
+                                  |
+        +-------------------------+-------------------------+--------------------+
+        |                         |                         |                    |
+        v                         v                         v                    v
+   /src/cpp.tt               /src/cc1.tt               /src/ld.tt          /src/c89.tt
+   -> /bin/cpp               -> /bin/cc1               -> /bin/ld          -> /bin/c89
+ (C Preprocessor)        (C89 -> TCO1 .o)          (TCO1 .o -> Binary)    (Compiler Driver)
+        |                         |                         |
+        +-------------------------+-------------------------+
+                                  |
+                                  v
+            /src/libc.c  ==(/bin/c89 -c)==>  /lib/libc.o (54 KB)
+     /src/doom/*.c + *.o ==(/bin/c89)=====>  /bin/doombench & /bin/doom
+```
 
 ---
 
-## 5. Shared-Memory WebAssembly JIT (ON by Default + `startPc` Tag Check)
+## 4. DOOM Platform Layer (`doomgeneric_tabcomp.c`) & Hardware Acceleration
 
-1. **Enabled at Boot**: `TabCompCPU` initializes `this.jitEnabled = this.wasmMem ? 1 : 0;` (falling back silently to `0` if `WebAssembly` is unavailable and reporting availability in `mips`).
-2. **Zero-Copy Shared `WebAssembly.Memory`**: `cpu.ram` (`0x000000..0x0FFFFF`), `cpu.reg` (`0x100000..0x10003F`), `PC` (`0x100040`), `FLAGS` (`0x100044`), and `CODE_DIRTY` (`0x100048`) share a single 17-page `WebAssembly.Memory`.
-3. **20-Bit `startPc` Tag Verification**: Because `blockTable` is indexed by `(pc >>> 2) & 0xFFFF` (which wraps at 256 KiB), each compiled block stores `{ fn, startPc }` and `stepBatch()` checks `blk.startPc === pc` on every lookup, treating any mismatch as a cache miss.
-4. **Coherency & Cache Invalidation**: `jit.invalidateAll()` is called automatically on `loadBinary` (`EXEC`), `EXIT` (`SYS 0`), `Ctrl+C`/`Esc` break, and any `STB`/`STH`/`STW` write to `< 0x050000`.
-
----
-
-## 6. Touch Input Architecture: TabKey™ 101 vs. TabPad™
-
-1. **TabKey™ 101 (Main Computer)**: Lives in `#tc-core` outside `/*@@PLAYER*/` with its CSS rules placed after `/*@@TABKEY_STYLE_BEGIN*/` in `#tc-style`. Feeds synthetic key events into `tcHandleKey(e)`.
-2. **TabPad™ (Cartridges & Main Computer)**: `buildTabPad()` lives inside `/*@@PLAYER_BEGIN*/ … /*@@PLAYER_END*/` with `.tp-*` CSS placed before `/*@@TABKEY_STYLE_BEGIN*/`.
-3. **Trimmed Cartridge Export**: `generateCartridgeHTML()` slices `PRISTINE_STYLE` up to `/*@@TABKEY_STYLE_BEGIN*/`, embeds `INITIAL_CLOCK` (`cpu.clockRate`), wires `playerHandleKey(e)` to both `keydown` and `buildTabPad()`, and includes a cartridge `TURBO` button.
+1. **64-Bit Fixed-Point Instructions (`FXMUL` `0x37`, `FXDIV` `0x38`):**
+   - Lowered directly to native WebAssembly `i64` arithmetic (`i64.extend_i32_s`, `i64.mul`, `i64.shr_s`, `i64.div_s`) inside `TabCompWasmJIT`.
+   - `FXDIV` implements exact DOOM `FixedDiv` saturation semantics (`(abs(a) >> 14) >= abs(b) -> (a ^ b) < 0 ? 0x80000000 : 0x7FFFFFFF`), eliminating division-by-zero traps during wall/column projection.
+2. **Direct 320×200 Framebuffer & Palette Mapping (`DG_DrawFrame`):**
+   - When `CMAP256 == 1` (8-bit indexed mode), `DG_DrawFrame()` copies the 64,000-byte `DG_ScreenBuffer` straight to `0x0F0000` (`VRAM`) and executes `SYS 10 (YIELD)`.
+   - When `DG_ScreenBuffer` is 32-bit `0x00RRGGBB` (`320×200×4`), `DG_DrawFrame()` maps RGB pixels through a 32-KB 15-bit RGB555 lookup table into `VRAM` and syncs `I_SetPalette` (`768` bytes) to `0x0FFA00`.
+3. **Edge-Triggered Keyboard Queue (`SYS 27 KEYEVENT` / `DG_GetKey`):**
+   - Physical `keydown`/`keyup` events, **TabKey™ 101** taps, and **TabPad™** holds push `{ pressed: 1|0, code }` transitions into `cpu.keyEventQueue`, allowing simultaneous multi-key movement (e.g., turning while strafing and firing).
+4. **Governed Millisecond Clock (`SYS 28 TICKS_MS` / `DG_GetTicksMs`):**
+   - Returns real elapsed milliseconds in TURBO mode (`clock max`) and instruction-governed milliseconds (`totalSteps / (clockRate * 1000)`) when a fixed clock (`clock 25`) is active, so DOOM's 35 Hz tic loop scales accurately with the hardware clock governor.
+5. **GPL-2.0 Cartridge Export (`export --gpl`):**
+   - TabComp™ 1.3 remains MIT-licensed. When exporting a cartridge linked with `doomgeneric` (or when `--gpl` is passed to `export`), `generateCartridgeHTML()` embeds a clear GNU General Public License v2.0 header and source pointer in the exported HTML file (`DOOM.html`), while keeping `TabBreakout.html` MIT-licensed.

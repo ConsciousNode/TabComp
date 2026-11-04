@@ -1,171 +1,108 @@
-# TabTalk™ Systems Programming Language (`docs/LANGUAGE.md`)
+# TabTalk™ & C89 Languages Reference (`docs/LANGUAGE.md`)
 
-**ConsciousNode SoftWorks Language Reference — Document Part #TC-89-LANG (Rev. 1.2)**  
-**Compiler Binary:** `/bin/cc` (compiled from `/src/cc.tt` in TabTalk itself)
-
----
-
-## 1. Overview
-
-**TabTalk™** is a compact, honest systems programming language designed specifically for self-hosting on the 32-bit TabComp™ RISC architecture. Syntactically a clean hybrid of C and Pascal, TabTalk compiles in a single pass directly to 32-bit TabComp machine code without an external assembler or linker.
-
-Every application on TabComp™—the compiler (`/src/cc.tt`), the command shell (`/src/sh.tt`), the full-screen editor (`/src/edit.tt`), the sprite editor (`/src/sprite.tt`), the Breakout game (`/src/breakout.tt`), the 4-channel music tracker (`/src/tracker.tt`), and the tile mapper (`/src/tilemap.tt`)—is written in TabTalk and compiled by `/bin/cc`.
+**ConsciousNode SoftWorks Language & Compiler Reference — Document Part #TC-89-LANG (Rev. 1.3 — "It Runs DOOM")**  
+**Compilers on Disk:**
+- **TabTalk™ Compiler:** `/bin/cc` (compiled from `/src/cc.tt` in TabTalk itself)
+- **C89 Toolchain (Written in TabTalk, Compiled by `/bin/cc`):**
+  - `/bin/c89` (`/src/c89.tt`) — Compiler driver (`-c`, `-E`, `-o`, `-I`, `-D`, `-nostdlib`, `@filelist`)
+  - `/bin/cpp` (`/src/cpp.tt`) — C Preprocessor
+  - `/bin/cc1` (`/src/cc1.tt`) — C89/C99-Subset Compiler (`TCO1` relocatable object generator)
+  - `/bin/ld` (`/src/ld.tt`) — Relocatable Object Linker (`TCO1` `.o` → TabComp flat executable)
 
 ---
 
-## 2. Types & Declarations
+## Part I: The TabComp™ C89 Toolchain (`/bin/c89`)
 
-TabTalk supports four core data types:
+New in **TabComp™ 1.3**, TabComp includes a complete, self-hosted **ANSI C89 / C99-subset toolchain** written in **TabTalk** and running natively on the TabComp 32-bit RISC CPU. No JavaScript is involved in compiling C code.
 
-1. **`int`**: 32-bit signed two's-complement integer (`4` bytes).
-2. **`byte`**: 8-bit unsigned integer (`1` byte in arrays/memory, zero-extended to 32 bits when loaded into a register).
-3. **Pointers (`int*`, `byte*`, `struct Foo*`)**: 32-bit byte addresses (`4` bytes). Pointer arithmetic automatically scales by the pointed-to element size (`1` byte for `byte*`, `4` bytes for `int*`, `sizeof(struct Foo)` for `struct Foo*`).
-4. **Fixed-size arrays (`int arr[64]`, `byte buf[1024]`)**: Contiguous regions allocated in the global `BSS` segment (`0x050000+`) or on the local function stack frame. Array identifiers evaluate to the base address of element `0`.
-5. **Structures (`struct Name { ... };`)**: Packed/4-byte-aligned composite records supporting `.` (direct) and `->` (pointer) member access.
+### 1. Invoking `/bin/c89` from the Shell
 
-### Compile-Time Constants
-```c
-const SCREEN_W  = 320;
-const SCREEN_H  = 200;
-const FONT_ADDR = 0x0EF000;
-const FB_ADDR   = 0x0F0000;
+```
+c89 hello.c -o /bin/hello
+c89 -I/src/doom -c /src/doom/doomgeneric_tabcomp.c -o /lib/doomgeneric_tabcomp.o
+c89 /src/doom/doombench.c /lib/doomgeneric_tabcomp.o -o /bin/doombench
+c89 @/src/doom/sources.rsp -o /bin/doom
 ```
 
-### Struct Definitions
-```c
-struct Point {
-  int x;
-  int y;
-  byte color;
-  byte tag[16];
-};
-```
-
-### Global & Local Variables
-```c
-int global_counter;
-byte work_buffer[4096];
-
-int compute(int a, int b) {
-  int sum = a + b;
-  byte local_name[32];
-  return sum * 2;
-}
-```
+| Flag | Description |
+| :--- | :--- |
+| `<file.c>` | Preprocesses (`/bin/cpp`) and compiles (`/bin/cc1`) `<file.c>` into a `TCO1` relocatable object file. |
+| `<file.o>` | Passes pre-compiled `TCO1` object file directly to `/bin/ld`. |
+| `-c` | Compile only (produces `<out>.o` without invoking `/bin/ld`). |
+| `-E` | Preprocess only (runs `/bin/cpp` and prints or writes preprocessed output). |
+| `-o <path>` | Output binary or `.o` file path (default `/home/a.out`). |
+| `-I<dir>` / `-I <dir>` | Adds `<dir>` to header search path (`/include` is always searched automatically). |
+| `-D<NAME>[=<VAL>]` | Defines preprocessor macro `<NAME>` (default value `1`). |
+| `-O0`..`-O3`, `-g`, `-Wall`, `-w` | Accepted for Makefile compatibility. |
+| `-nostdlib` | Links without automatically appending `/lib/libc.o`. |
+| `@<respfile>` | Reads whitespace-separated arguments and source/object filenames from `<respfile>` (supports 80+ file builds such as `doomgeneric`). |
 
 ---
 
-## 3. Statements & Control Flow
+### 2. Supported C Language Features (`/bin/cpp` + `/bin/cc1`)
 
-TabTalk supports full structured control flow:
-- **Blocks:** `{ stmt1; stmt2; ... }`
-- **Conditionals:**
-  ```c
-  if (x > 10 && y != 0) {
-    pset(x, y, 14);
-  } else if (x == 0) {
-    pset(x, y, 11);
-  } else {
-    pset(x, y, 1);
-  }
-  ```
-- **While Loops (`while`):**
-  ```c
-  int i = 0;
-  while (i < 100) {
-    if (i == 50) break;
-    i++;
-  }
-  ```
-- **For Loops (`for`)** with `break` and `continue`:
-  ```c
-  for (int r = 0; r < 25; r++) {
-    if (r == 12) continue;
-    draw_char(0, r * 8, '*', 15, 1);
-  }
-  ```
-- **Functions, Forward Declarations & Recursion:**
-  ```c
-  int parseExpr(); // forward declaration for mutual recursion
+#### Preprocessor (`/bin/cpp`)
+- `#include "file.h"` and `#include <header.h>` (searches current file directory, `-I` paths, and `/include`, up to 12 levels deep).
+- `#pragma once` and standard `#ifndef` include guards.
+- Object-like (`#define MAX 100`) and function-like macros (`#define ABS(x) ...`), including variadic macros (`#define LOG(fmt, ...) printf(fmt, __VA_ARGS__)`), `#` stringification, and `##` token pasting (`CAT(a, b)`).
+- `#undef`, `#ifdef`, `#ifndef`, `#if`, `#elif`, `#else`, `#endif` with full constant expression evaluation (`defined(X)`, `defined X`, `&&`, `||`, `!`, bitwise, shifts, comparisons, arithmetic, character literals, ternary `? :`).
+- Predefined macros: `__TABCOMP__=1`, `__STDC__=1`, `__LINE__`, `__FILE__`.
+- Backslash-newline (`\\\n`) line splicing, `/* ... */` block comments, `// ...` line comments, and adjacent string literal concatenation (`"hello " "world"`).
 
-  int fib(int n) {
-    if (n <= 1) return n;
-    return fib(n - 1) + fib(n - 2);
-  }
-  ```
+#### Types & Storage Classes (`/bin/cc1`)
+- **Integer Types:** `void`, `char`, `signed char`, `unsigned char` (`uint8_t`, `byte`), `short`, `unsigned short` (`uint16_t`), `int`, `unsigned int` (`uint32_t`, `size_t`, `uintptr_t`), `long`, `unsigned long`, and 64-bit `long long` / `unsigned long long` (`int64_t`, `uint64_t`, stored in `R0:R1` register pairs and 8-byte memory slots).
+- **Floating-Point (`float`, `double`):** Represented as 32-bit `16.16` signed fixed-point numbers (`1.0 == 65536`), lowered directly to `FXMUL` (`0x37`) and `FXDIV` (`0x38`) instructions, with automatic conversion to/from integer types.
+- **Aggregates & Type Definitions:**
+  - `struct` and `union` (including anonymous structs/unions, nested structs, self-referential structs such as `struct mobj_s { struct mobj_s *snext, *sprev; ... };`, and `__attribute__((packed))` / `#pragma pack`).
+  - `enum` (named and anonymous, with explicit or auto-incrementing initializers).
+  - `typedef` (arbitrary pointer, array, struct/union/enum, and function-pointer typedefs such as `typedef void (*think_t)();`).
+- **Pointers & Multi-Dimensional Arrays:** Arbitrary pointer depth (`T*`, `T**`), multi-dimensional arrays (`int map[128][64]`), array-to-pointer decay, and scaled pointer arithmetic (`p + i`, `p - q`, `p++`, `p += n`).
+- **Function Pointers:** Full support for function pointers as variables, parameters, struct/union fields (`actionf_t` in DOOM's `state_t`), and arrays, invoked either as `fp(args)` or `(*fp)(args)` via `CALLR R0` (`0x34`).
+- **Storage Classes & Qualifiers:** `extern`, `static` (both file-scope internal linkage and function-local persistent variables in `.data`/`.bss`), `const`, `volatile`, `register`, `inline`.
+
+#### Statements, Expressions & Initializers
+- Control flow: `if` / `else`, `while`, `do ... while`, `for (init; cond; step)` (including C99 `for (int i = 0; ...)`), `switch` / `case` / `default` (with fallthrough), `break`, `continue`, `goto` and named `label:`, `return`.
+- All C operators: arithmetic, bitwise, logical short-circuit `&&` / `||`, relational (signed & unsigned), ternary `cond ? a : b`, comma `,`, `sizeof(type)` and `sizeof expr`, type casts `(type)expr` (including `(intptr_t)` / `(void*)` and signed/unsigned narrowing/widening), pre/post `++`/`--`, and compound assignments (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`).
+- **Complex Nested Initializers:** Global and local array/struct/union brace initializers (`{ ... }`), including designated-style nested tables like DOOM's `mobjinfo[]` and `states[]` (`{ S_POSS_STND, 20, {A_Look}, S_POSS_STND2 }`).
+- **Hardware Intrinsics:** `__builtin_fxmul(a, b)` (`FXMUL`, `0x37`) and `__builtin_fxdiv(a, b)` (`FXDIV`, `0x38`) for single-instruction `16.16` `FixedMul` and `FixedDiv`.
 
 ---
 
-## 4. Operators & Precedence (Highest to Lowest)
+### 3. Object File Format (`TCO1`) & Linker (`/bin/ld`)
 
-| Precedence | Operators | Associativity | Description |
-| :--- | :--- | :--- | :--- |
-| **1 (Postfix)** | `a[i]`, `f(...)`, `s.m`, `p->m`, `x++`, `x--` | Left-to-right | Subscript, call, struct member, post-inc/dec |
-| **2 (Unary)** | `-x`, `!x`, `~x`, `*p`, `&v`, `++x`, `--x` | Right-to-left | Negation, logical/bitwise NOT, deref, address-of, pre-inc/dec |
-| **3 (Multiplicative)** | `*`, `/`, `%` | Left-to-right | Signed 32-bit multiply, divide, modulo |
-| **4 (Additive)** | `+`, `-` | Left-to-right | Addition and subtraction (with automatic pointer scaling) |
-| **5 (Shift)** | `<<`, `>>` | Left-to-right | Bitwise shift left and arithmetic shift right |
-| **6 (Relational)** | `<`, `<=`, `>`, `>=` | Left-to-right | Signed 32-bit comparisons (evaluates to `1` or `0`) |
-| **7 (Equality)** | `==`, `!=` | Left-to-right | Equality / inequality (evaluates to `1` or `0`) |
-| **8 (Bitwise AND)** | `&` | Left-to-right | Bitwise AND |
-| **9 (Bitwise XOR)** | `^` | Left-to-right | Bitwise XOR |
-| **10 (Bitwise OR)** | `\|` | Left-to-right | Bitwise OR |
-| **11 (Logical AND)** | `&&` | Left-to-right | Short-circuit logical AND |
-| **12 (Logical OR)** | `\|\|` | Left-to-right | Short-circuit logical OR |
-| **13 (Ternary)** | `cond ? a : b` | Right-to-left | Conditional expression |
-| **14 (Assignment)** | `=`, `+=`, `-=` | Right-to-left | Simple and compound assignment |
+`/bin/cc1` emits compact relocatable binary object files (`.o`) with a 32-byte header (`magic = "TCO1"`):
+- **Sections:** `.text` (code), `.data` (initialized globals, strings, and static locals), `.bss` (zero-initialized globals/arrays), symbol table (`SYM_UND`, `SYM_TEXT`, `SYM_DATA`, `SYM_BSS`, `SYM_ABS`, with `STB_LOCAL` vs `STB_GLOBAL` binding so file-scope `static` symbols never collide across `.o` files), and relocation table (`REL_ADDR24`, `REL_LDIU_LUI`, `REL_ABS32`).
+- **Linker Layout (`/bin/ld`):**
+  - Emits a startup stub at `0x0000000` that initializes `SP = 0x0FF0000` (15 MiB mark), calls `__libc_init_args(0x00DF000)` to parse `argc`/`argv` and redirect `main(argc, argv)`, and invokes `exit(ret)` on return.
+  - Concatenates all `.text` sections into low memory (`0x0000000+`).
+  - Places all `.data` and `.bss` (plus resolved `COMMON` tentative definitions) starting at `0x0100000` (`1 MiB`), exports `__bss_start`, `__bss_end`, and `__heap_start`, and provides a **14 MiB `sbrk`/`malloc` heap** (`__heap_start .. 0x0F00000`).
 
 ---
 
-## 5. Literals & Source Inclusion (`import`)
+### 4. Standard C Library (`/lib/libc.o` & `/include/*.h`)
 
-- **Integer Literals:** Decimal (`42`, `-100`) and hexadecimal (`0x0F0000`, `0xFF`).
-- **Character Literals:** `'A'` (`65`), `'\n'` (`10`), `'\r'` (`13`), `'\t'` (`9`), `'\0'` (`0`), `'\\'` (`92`), `'\''` (`39`), `'\x1B'` (`27`).
-- **String Literals:** `"Hello, TabComp!\n"` emits a 4-byte-aligned null-terminated byte sequence inline in the code segment (wrapped by an unconditional `JMP` over the string bytes) and evaluates to its `byte*` RAM address.
-- **Module Imports (`import "file.tt";`):**
-  ```c
-  import "lib/std.tt";
-  ```
-  Expanded once per unique normalized file path before tokenization, allowing applications and `/src/cc.tt` to share `/src/lib/std.tt`.
-- **Direct System Call Intrinsic (`sys`):**
-  ```c
-  int fd = sys(1, path, mode); // invokes SYS 1 with R0=path, R1=mode
-  ```
+| Header(s) | Provided Functions & Types |
+| :--- | :--- |
+| `<stdint.h>`, `<stddef.h>`, `<stdbool.h>`, `<limits.h>`, `<inttypes.h>` | `int8_t`..`int64_t`, `uint8_t`..`uint64_t`, `intptr_t`, `uintptr_t`, `size_t`, `ptrdiff_t`, `bool`, `NULL`, `offsetof`, `PRI*` macros. |
+| `<stdarg.h>` | `va_list`, `va_start(ap, last)`, `va_arg(ap, type)`, `va_end(ap)`, `va_copy(dst, src)`. |
+| `<stdio.h>` | `FILE`, `stdin`, `stdout`, `stderr`, `fopen`, `fclose`, `fread`, `fwrite`, `fseek`, `ftell`, `rewind`, `feof`, `ferror`, `fgetc`, `getc`, `getchar`, `fputc`, `putc`, `putchar`, `fgets`, `fputs`, `puts`, `ungetc`, `fflush`, `remove`, `rename`, `printf`, `fprintf`, `sprintf`, `snprintf`, `vprintf`, `vfprintf`, `vsprintf`, `vsnprintf`, `sscanf`. |
+| `<stdlib.h>` | `malloc`, `calloc`, `realloc`, `free` (coalescing free-list allocator backed by 14 MiB heap), `atoi`, `atol`, `atof`, `strtol`, `strtoul`, `abs`, `labs`, `qsort`, `bsearch`, `rand`, `srand`, `exit`, `abort`, `atexit`, `getenv`, `system`. |
+| `<string.h>`, `<strings.h>` | Word-accelerated `memcpy`, `memset`, `memmove`, `memcmp`, `memchr`, `strlen`, `strcpy`, `strncpy`, `strcat`, `strncat`, `strcmp`, `strncmp`, `strchr`, `strrchr`, `strstr`, `strdup`, `strerror`, `strcasecmp`, `strncasecmp`. |
+| `<ctype.h>` | `isalpha`, `isdigit`, `isalnum`, `isspace`, `isupper`, `islower`, `isxdigit`, `isprint`, `ispunct`, `iscntrl`, `toupper`, `tolower`. |
+| `<math.h>` | `abs`, `fabs`, `floor`, `ceil`, `sin`, `cos`, `tan`, `sqrt`, `M_PI`, plus `FixedMul(a, b)` and `FixedDiv(a, b)` hardware intrinsics. |
+| `<errno.h>`, `<assert.h>`, `<fcntl.h>`, `<unistd.h>`, `<sys/stat.h>`, `<sys/types.h>`, `<time.h>` | `errno`, `assert()`, `open`, `read`, `write`, `close`, `lseek`, `unlink`, `mkdir`, `stat`, `fstat`, `isatty`, `usleep`, `clock`, `time`. |
 
 ---
 
-## 6. Standard Library Reference (`/src/lib/std.tt`)
+## Part II: TabTalk™ Systems Programming Language (`/bin/cc`)
 
-### String & Word-Accelerated Memory Functions (New in 1.1!)
-- `int strlen(byte* s)`: Returns length of null-terminated string `s`.
-- `int strcmp(byte* a, byte* b)` / `int strncmp(byte* a, byte* b, int n)`: Lexicographical byte comparison.
-- `byte* strcpy(byte* dst, byte* src)` / `byte* strcat(byte* dst, byte* src)`: Copy or concatenate null-terminated strings.
-- `int memcpy(byte* dst, byte* src, int n)`: Word-accelerated memory block copy. Copies byte-by-byte until `dst` is 4-byte aligned, then uses a 4× unrolled 32-bit `int*` word loop when `src` is also 4-byte aligned and `rem >= 16`, with byte fallback for the tail.
-- `int memset(byte* dst, int val, int n)`: Word-accelerated memory block fill. Builds the 32-bit word `v | (v << 8) | (v << 16) | (v << 24)` and writes 16 bytes per iteration in a 4× unrolled `int*` loop once 4-byte aligned, reducing `cls(0)` from `1,920,066` instructions to `268,220` instructions (**7.16× speedup**).
-- `int atoi(byte* s)` / `int itoa(int val, byte* buf)`: ASCII-to-integer and integer-to-ASCII conversion.
+**TabTalk™** is TabComp's native single-pass systems programming language. The TabTalk compiler (`/src/cc.tt`), the C89 toolchain (`/src/cpp.tt`, `/src/cc1.tt`, `/src/ld.tt`, `/src/c89.tt`), the shell (`/src/sh.tt`), the editor (`/src/edit.tt`), and all built-in creative apps (`breakout`, `sprite`, `tracker`, `tilemap`) are written in TabTalk and compiled by `/bin/cc`.
 
-### Console & Formatted Output
-- `int puts(byte* s)` / `int putc(int c)` / `int print_int(int v)`
-- `int printf2(byte* fmt, int a0, int a1)`: Supports `%d`, `%s`, `%c`.
-
-### File I/O & Process Control
-- `int fopen(byte* path, int mode)`: `mode = 0` (read), `mode = 1` (write/create/truncate).
-- `int fread(int fd, byte* buf, int len)` / `int fwrite(int fd, byte* buf, int len)` / `int fclose(int fd)`
-- `int flist(byte* dir, int idx, byte* name_out, int* is_dir, int* size_out)`
-- `int fmkdir(byte* path)` / `int fdelete(byte* path)` / `int fstat(byte* path, int* size_out, int* is_dir)`
-- `int chdir(byte* path)` / `int getcwd(byte* buf)` / `int getargs(byte* buf)`
-- `int exec(byte* bin_path, byte* args)` / `int exit(int code)` / `int yield()`
-
-### Graphics, Sound & Input (`320×200`, 256 Colours)
-- `int cls(int col)`: Clears all 64,000 pixels of the framebuffer (`0x0F0000`) to palette index `col` via word-accelerated `memset`.
-- `int pset(int x, int y, int col)` / `int pget(int x, int y)`: Plot or read pixel at `(x, y)`.
-- `int rect(int x, int y, int w, int h, int col)`: Clipped filled rectangle using word-accelerated `memset` per scanline.
-- `int line(int x0, int y0, int x1, int y1, int col)`: Bresenham line rasterizer with fast horizontal `rect` path.
-- `int draw_char(int x, int y, int ch, int fg, int bg)`: Renders an 8×8 glyph from `FONT_ADDR` (`0x0EF000`), with transparent background when `bg < 0`.
-- `int text(int x, int y, byte* s, int fg, int bg)`: Renders a null-terminated string using the 8×8 font.
-- `int blit(int x, int y, int w, int h, byte* data, int transparent)`: Clipped sprite blitter skipping `transparent` colour index.
-- `int sound(int ch, int freq, int vol, int duty)`: Programs Web Audio synthesizer channel `0..3` at `0x0FFD20`.
-- `int getkey()` / `int millis()`: Reads hardware key queue or monotonic millisecond timer (`SYS 12` / `0x0FFD00`).
-- `int sys_jit(int mode)`: Enables (`1`), disables (`0`), or queries (`-1`) the WebAssembly JIT (`SYS 21`).
-- `int sys_clock(int rate)`: Sets (`0` = `MAX`, `1..1000` = fixed MIPS) or queries (`-1`) the hardware clock governor (`SYS 22`).
-- `byte* sys_version()`: Returns the single canonical OS version string (`"1.2"`).
+### Summary of TabTalk Features
+- **Types:** `int` (32-bit signed), `byte` (8-bit unsigned), pointers (`int*`, `byte*`, `struct T*`), fixed-size arrays, and `struct` definitions.
+- **Control Flow:** `if`/`else`, `while`, `for`, `break`, `continue`, `return`, recursion, and forward declarations.
+- **Intrinsics & Standard Library (`/src/lib/std.tt`):**
+  - System calls via `sys(num, a0, a1, a2, a3, a4)`.
+  - File I/O (`fopen`, `fread`, `fwrite`, `fclose`, `fseek`, `ftell`, `fsize`, `frename`, `flist`, `fmkdir`, `fdelete`, `fstat`).
+  - Graphics & audio (`cls`, `pset`, `pget`, `rect`, `line`, `draw_char`, `text`, `blit`, `sound`, `pcm_play`, `yield`).
+  - Clock, JIT & Key Events (`sys_jit`, `sys_clock`, `getkey`, `get_key_event`, `millis`, `ticks_ms`, `sleep_ms`, `sys_version() -> "1.3"`).
