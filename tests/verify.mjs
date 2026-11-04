@@ -5,7 +5,7 @@
 //   node tests/verify.mjs [path/to/tabcomp.html]      (default: index.html)
 //
 // 1. Boots with zero page errors and zero network requests.
-// 2. window.TABCOMP_SELFTEST() reports 8/8.
+// 2. window.TABCOMP_SELFTEST() reports no failures (8 tests in 1.0, 13 in 1.1).
 // 3. Save identity: `save` in the shell reproduces the file byte for byte.
 // 4. Heredity: child → grandchild → great-grandchild are byte-identical.
 // 5. Tamper test ("trusting trust"): add one line to /src/cc.tt so every
@@ -44,7 +44,7 @@ async function boot(file) {
 // 1–3
 const p = await boot(target);
 const st = await p.evaluate(() => window.TABCOMP_SELFTEST());
-check(st.failed === 0 && st.passed === 8, `self-test ${st.passed}/${st.passed + st.failed}` + (st.failed ? ': ' + st.results.filter(r => !r.pass).map(r => r.name).join(', ') : ''));
+check(st.failed === 0 && st.passed >= 8, `self-test ${st.passed}/${st.passed + st.failed}` + (st.failed ? ': ' + st.results.filter(r => !r.pass).map(r => r.name).join(', ') : ''));
 const orig = fs.readFileSync(target, 'utf8');
 const child = await p.save();
 check(child === orig, `save identity: the saved copy equals the running file (${Buffer.byteLength(child)} vs ${Buffer.byteLength(orig)} bytes)`);

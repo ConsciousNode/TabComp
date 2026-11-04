@@ -1,6 +1,6 @@
 # TabTalk™ Systems Programming Language (`docs/LANGUAGE.md`)
 
-**ConsciousNode SoftWorks Language Reference — Document Part #TC-89-LANG**  
+**ConsciousNode SoftWorks Language Reference — Document Part #TC-89-LANG (Rev. 1.1)**  
 **Compiler Binary:** `/bin/cc` (compiled from `/src/cc.tt` in TabTalk itself)
 
 ---
@@ -25,9 +25,10 @@ TabTalk supports four core data types:
 
 ### Compile-Time Constants
 ```c
-const SCREEN_W = 320;
-const SCREEN_H = 200;
-const FB_ADDR  = 0x0F0000;
+const SCREEN_W  = 320;
+const SCREEN_H  = 200;
+const FONT_ADDR = 0x0EF000;
+const FB_ADDR   = 0x0F0000;
 ```
 
 ### Struct Definitions
@@ -135,11 +136,12 @@ TabTalk supports full structured control flow:
 
 ## 6. Standard Library Reference (`/src/lib/std.tt`)
 
-### String & Memory Functions
+### String & Word-Accelerated Memory Functions (New in 1.1!)
 - `int strlen(byte* s)`: Returns length of null-terminated string `s`.
 - `int strcmp(byte* a, byte* b)` / `int strncmp(byte* a, byte* b, int n)`: Lexicographical byte comparison.
 - `byte* strcpy(byte* dst, byte* src)` / `byte* strcat(byte* dst, byte* src)`: Copy or concatenate null-terminated strings.
-- `int memcpy(byte* dst, byte* src, int n)` / `int memset(byte* dst, int val, int n)`: Fast memory block copy and fill.
+- `int memcpy(byte* dst, byte* src, int n)`: Word-accelerated memory block copy. Copies byte-by-byte until `dst` is 4-byte aligned, then uses a 4× unrolled 32-bit `int*` word loop when `src` is also 4-byte aligned and `rem >= 16`, with byte fallback for the tail.
+- `int memset(byte* dst, int val, int n)`: Word-accelerated memory block fill. Builds the 32-bit word `v | (v << 8) | (v << 16) | (v << 24)` and writes 16 bytes per iteration in a 4× unrolled `int*` loop once 4-byte aligned, reducing `cls(0)` from `1,920,066` instructions to `268,220` instructions (**7.16× speedup**).
 - `int atoi(byte* s)` / `int itoa(int val, byte* buf)`: ASCII-to-integer and integer-to-ASCII conversion.
 
 ### Console & Formatted Output
@@ -155,12 +157,12 @@ TabTalk supports full structured control flow:
 - `int exec(byte* bin_path, byte* args)` / `int exit(int code)` / `int yield()`
 
 ### Graphics, Sound & Input (`320×200`, 256 Colours)
-- `int cls(int col)`: Clears all 64,000 pixels of the framebuffer (`0x0F0000`) to palette index `col`.
+- `int cls(int col)`: Clears all 64,000 pixels of the framebuffer (`0x0F0000`) to palette index `col` via word-accelerated `memset`.
 - `int pset(int x, int y, int col)` / `int pget(int x, int y)`: Plot or read pixel at `(x, y)`.
-- `int rect(int x, int y, int w, int h, int col)`: Clipped filled rectangle.
-- `int line(int x0, int y0, int x1, int y1, int col)`: Bresenham line rasterizer.
-- `int draw_char(int x, int y, int ch, int fg, int bg)`: Renders an 8×8 glyph from `FONT_ADDR` (`0x0EF000` since 1.0.1), with transparent background when `bg < 0`.
+- `int rect(int x, int y, int w, int h, int col)`: Clipped filled rectangle using word-accelerated `memset` per scanline.
+- `int line(int x0, int y0, int x1, int y1, int col)`: Bresenham line rasterizer with fast horizontal `rect` path.
+- `int draw_char(int x, int y, int ch, int fg, int bg)`: Renders an 8×8 glyph from `FONT_ADDR` (`0x0EF000`), with transparent background when `bg < 0`.
 - `int text(int x, int y, byte* s, int fg, int bg)`: Renders a null-terminated string using the 8×8 font.
-- `int blit(int x, int y, int w, int h, byte* data, int transparent)`: Blits a sprite buffer skipping `transparent` colour index.
+- `int blit(int x, int y, int w, int h, byte* data, int transparent)`: Clipped sprite blitter skipping `transparent` colour index.
 - `int sound(int ch, int freq, int vol, int duty)`: Programs Web Audio synthesizer channel `0..3` at `0x0FFD20`.
 - `int getkey()` / `int millis()`: Reads hardware key queue or millisecond timer.

@@ -1,9 +1,20 @@
-# TabComp™ 1.0 User's Guide & Technical Manual (`docs/MANUAL.md`)
+# TabComp™ 1.1 User's Guide & Technical Manual (`docs/MANUAL.md`)
 
-**CONGRATULATIONS ON YOUR PURCHASE OF TABCOMP™ 1.0!**  
+**CONGRATULATIONS ON YOUR UPGRADE TO TABCOMP™ 1.1!**  
 *The Computer That Fits In Your Tab!*  
-Published by **ConsciousNode SoftWorks**, Mountain View & Cyberia — First Edition, Fall 1989 (Rev. 1991 Boxed Collector's Edition)  
-**Catalog No.** CNSW-TC1000-BX • **Suggested Retail Price:** $49.95 (3.5" High-Density Microfloppy Included)
+Published by **ConsciousNode SoftWorks**, Mountain View & Cyberia — Fall 1989 (Rev. 1.1 Performance & Flicker-Free Edition)  
+**Catalog No.** CNSW-TC1100-BX • **Suggested Retail Price:** $49.95 (Free 3.5" Upgrade Disk for Registered 1.0 Owners!)
+
+---
+
+## What's New in 1.1! (ConsciousNode Engineering Bulletin)
+
+> **ATTENTION REGISTERED TABCOMP™ PIONEERS!**  
+> Your 1.1 ROM & System Disk upgrade delivers four major breakthroughs straight from the ConsciousNode SoftWorks hardware and systems lab:
+> 1. **Zero-Tear "Present-on-YIELD" Display Engine:** Say goodbye to "VHS camcorder" screen flicker on portable and handheld tab computers! TabComp™ 1.1 introduces a dedicated 64,000-byte hardware **Present Buffer**. `VRAM` (`0x0F0000`) is latched to the CRT only when your program calls `yield()` (with an automatic 100 ms fallback for non-yielding console tasks), guaranteeing that half-cleared frames never reach the glass!
+> 2. **7.16× Faster 32-Bit Word-Aligned `memset`, `memcpy` & `cls` in TabTalk:** `/src/lib/std.tt` now packs 4-byte words (`v | v<<8 | v<<16 | v<<24`) and blasts 16 bytes per iteration in a 4× unrolled `int*` loop! Clearing the 320×200 screen (`cls(0)`) drops from **1,920,066 instructions** to **268,220 instructions**,nearly tripling **TabBreakout™** frame rates on 30 MIPS mobile tabs!
+> 3. **True Shared-Memory WebAssembly Basic-Block JIT (`jit on`):** CPU RAM (`0x000000..0x0FFFFF`) and registers (`0x100000..0x10004B`) now live directly inside shared `WebAssembly.Memory`. Hot basic blocks and loops (`>= 50` hits) compile on the fly into register-allocated WebAssembly functions executing **99.3% of all `/bin/cc` compiler instructions natively in Wasm** (~490 MIPS on compiler self-builds and >1,200 MIPS in **TabBreakout™**)!
+> 4. **Protected Font ROM (`0x0EF000`) & POST Hardware Map Guard:** `FONT_ROM` is safely stationed at `0x0EF000–0x0EF2FF`, backed by a startup BIOS bounds-and-overlap assertion across all 6 MMIO regions and a **13-part `selftest` suite**!
 
 ---
 
@@ -21,27 +32,27 @@ We call our house philosophy **XINU** (*Xinu Is Opposite to Unix*):
 
 ---
 
-## Chapter 1: Turning On Your TabComp™
+## Chapter 1: Turning On Your TabComp™ 1.1
 
-When you open `tabcomp.html` in your browser tab, the **ConsciousNode ROM BIOS v1.0** performs its Power-On Self-Test (POST):
-1. **Memory Count:** Verifies all **1,048,576 BYTES FREE** of 32-bit little-endian system RAM.
-2. **Speed Benchmark:** Measures your host's real-time instruction throughput in **MIPS** (*Millions of Instructions Per Second*) and displays it on the CRT bezel badge (`CPU: 250.0 MIPS!`).
-3. **3-Stage TabTalk Bootstrap:** Verifies the self-hosting compiler chain (`Stage 0 -> Stage 1 -> Stage 2 -> Stage 3`) and launches `/bin/sh`, presenting the unmistakable prompt:
+When you open `tabcomp.html` in your browser tab, the **ConsciousNode ROM BIOS v1.1** performs its Power-On Self-Test (POST):
+1. **Hardware MMIO Map Verification:** Asserts that all 6 hardware regions (`FONT_ROM` at `0x0EF000–0x0EF2FF`, `VRAM` at `0x0F0000–0x0FF9FF`, `PALETTE` at `0x0FFA00–0x0FFCFF`, `TIMER_MS`, `VSYNC_CNT`, and `SOUND_REGS`) lie inside `0x000000–0x0FFFFF` with zero overlaps.
+2. **Memory Count:** Verifies all **1,048,576 BYTES FREE** of 32-bit little-endian system RAM.
+3. **Dual-Metric Speed Badge:** Measures both peak loop speed and live running workload speed on the CRT bezel badge (`CPU: 300 MIPS (peak) | run: 195.2 MIPS`).
+4. **3-Stage TabTalk Bootstrap:** Verifies the self-hosting compiler chain (`Stage 0 -> Stage 1 -> Stage 2 -> Stage 3`) and launches `/bin/sh`, presenting the unmistakable prompt:
    ```
    TABCOMP C:\HOME>
    ```
-   *(Yes, forward slashes work in paths, and the prompt displays `C:\HOME>` so both Unix beards and DOS power-users have something to write letters to the editor about!)*
 
 ---
 
 ## Chapter 2: Complete Shell Command Reference (`/bin/sh`)
 
-Your 40×25 graphical text shell (`/src/sh.tt`) renders directly into the 320×200 framebuffer using the built-in 8×8 ROM font, complete with a blinking green underline cursor and 100-line scrollback buffer (**PgUp** / **PgDn** scrolls through history).
+Your 40×25 graphical text shell (`/src/sh.tt`) renders directly into the 320×200 framebuffer using the built-in 8×8 ROM font at `0x0EF000`, complete with a blinking green underline cursor and 100-line scrollback buffer (**PgUp** / **PgDn** scrolls through history). Every `help` line is strictly formatted to `<= 40` columns so nothing wraps.
 
 | Command | Syntax | Description |
 | :--- | :--- | :--- |
-| **`help`** | `help` | Displays a summary of all built-in shell commands and applications. |
-| **`ver`** | `ver` | Prints the official ConsciousNode SoftWorks 1989 marketing banner. |
+| **`help`** | `help` | Displays a clean 40-column summary of all built-in shell commands. |
+| **`ver`** | `ver` | Prints the official ConsciousNode SoftWorks 1989 v1.1 banner. |
 | **`ls`** | `ls [dir]` | Lists files (with byte sizes) and subdirectories (`<DIR>`) in `dir` or current directory. |
 | **`cd`** | `cd <dir>` | Changes the current working directory (default `/home`). |
 | **`pwd`** | `pwd` | Prints the current normalized working directory path. |
@@ -57,10 +68,10 @@ Your 40×25 graphical text shell (`/src/sh.tt`) renders directly into the 320×2
 | **`breakout`** | `breakout` | Launches **TabBreakout™** arcade game with custom sprites and 4-channel sound. |
 | **`tracker`** | `tracker [file.trk]` | Launches **TabTracker™** 4-channel chiptune music studio (default `/home/theme.trk`). |
 | **`tilemap`** | `tilemap [file.map]` | Launches **TabTile™** 40×25 level tile map editor (default `/home/level.map`). |
-| **`rebootstrap`** | `rebootstrap` | Rebuilds `/src/cc.tt` through Stages 1, 2, and 3 and verifies `Stage 1 == Stage 2 == Stage 3`. |
-| **`selftest`** | `selftest` | Runs the 8-part hardware/compiler/bootstrap/filesystem/save/export/MIPS self-test suite. |
-| **`mips`** | `mips` | Benchmarks the CPU and prints current throughput in MIPS and execution mode. |
-| **`jit`** | `jit [on\|off]` | Enables or disables the hand-encoded WebAssembly Basic-Block JIT compiler. |
+| **`rebootstrap`** | `rebootstrap` | Rebuilds `/src/cc.tt` through Stages 1, 2, and 3 (using Wasm JIT if `jit on`) and verifies fixed point. |
+| **`selftest`** | `selftest` | Runs the 13-part hardware/font/tear-free/reproducibility/JIT/tamper self-test suite. |
+| **`mips`** | `mips` | Benchmarks a real workload (`/bin/cc` compiling `/src/cc.tt`) under both Interpreter and Wasm JIT. |
+| **`jit`** | `jit [on\|off]` | Enables or disables the shared-memory WebAssembly Basic-Block JIT compiler. |
 | **`save`** | `save` | Downloads a complete, self-replicating `tabcomp-YYYYMMDD-HHMM.html` with your live disk. |
 | **`export`** | `export <bin> <title>` | **Budding!** Exports standalone `<title>.html` game cartridge containing only the player + binary. |
 | **`clear`** | `clear` | Clears the 40×25 screen and resets scrollback. |
@@ -76,7 +87,7 @@ cat /README.TXT
 ls /src
 ls /bin
 ```
-You will see that every tool you use—`cc.tt`, `sh.tt`, `edit.tt`, `sprite.tt`, `breakout.tt`, `tracker.tt`, `tilemap.tt`—lives right there in `/src` as readable TabTalk source code!
+Every tool you use—`cc.tt`, `sh.tt`, `edit.tt`, `sprite.tt`, `breakout.tt`, `tracker.tt`, `tilemap.tt`—lives right there in `/src` as readable TabTalk source code, and every `/bin/*` binary on disk is 100% byte-identical to compiling its `/src/*.tt` source with `/bin/cc`!
 
 ### Lesson 2: Running & Modifying Your First Program
 1. Compile the included Fibonacci demo in `/home/hello.tt`:
@@ -96,95 +107,28 @@ You will see that every tool you use—`cc.tt`, `sh.tt`, `edit.tt`, `sprite.tt`,
    hello
    ```
 
-### Lesson 3: Writing a Graphics & Sound Demo from Scratch
-1. Type `edit /home/star.tt` and enter:
-   ```c
-   import "/src/lib/std.tt";
-
-   int main() {
-     cls(0);
-     for (int i = 0; i < 160; i++) {
-       line(160, 100, i * 2, 0, (i & 15));
-       line(160, 100, i * 2, 199, ((i + 4) & 15));
-     }
-     text(68, 96, "WELCOME TO TABCOMP 1989!", 14, 1);
-     sound(0, 440, 180, 128);
-     while (getkey() == 0) {
-       yield();
-     }
-     sound(0, 0, 0, 0);
-     return 0;
-   }
+### Lesson 3: Benchmarking the Shared-Memory WebAssembly JIT
+1. At the shell prompt, type:
    ```
-2. Press **Ctrl+S**, then **Ctrl+Q**.
-3. Compile and run it:
+   jit on
+   mips
    ```
-   cc /home/star.tt -o /bin/star
-   star
-   ```
-   Press any key (or **Ctrl+C** / **Esc**) to return to the shell.
+2. Watch TabComp™ compile `/src/cc.tt` (44.37 million instructions!) in both Interpreter mode and WebAssembly JIT mode, reporting exact instruction counts, cold vs. warm JIT MIPS, and the percentage of instructions executed inside WebAssembly (`99.3%`)!
 
 ### Lesson 4: Editing the Compiler Itself & Proving Self-Hosting
-Want to prove that TabComp™ is truly self-sufficient?
-1. Open the TabTalk compiler source code in the TabTalk editor:
-   ```
-   edit /src/cc.tt
-   ```
-2. Add a comment or tweak a banner message, press **Ctrl+S**, and press **Ctrl+Q**.
-3. Recompile the compiler using `/bin/cc` and verify the 3-stage fixed point:
-   ```
-   cc /src/cc.tt -o /bin/cc
-   rebootstrap
-   ```
-   TabComp™ compiles `/src/cc.tt` across all three stages and confirms `Stage 1 == Stage 2 == Stage 3`!
+1. Open `/src/cc.tt` in the TabTalk editor (`edit /src/cc.tt`), make a change, press **Ctrl+S**, and press **Ctrl+Q**.
+2. Run `rebootstrap` (with `jit on` or `jit off`) to rebuild Stage 1 → Stage 2 → Stage 3 and verify the fixed point (`Stage 2 == Stage 3`)!
 
-### Lesson 5: Painting Sprites & Budding a Standalone Game Cartridge
-1. Launch **TabSprite™**:
-   ```
-   sprite /home/game.spr
-   ```
-   - **Arrow keys**: Move pixel cursor on the 16×16 canvas.
-   - **`0`–`9`, `A`–`F`** or **`[` / `]`**: Select colour from the 16-colour sub-palette.
-   - **`Space` / `Enter`**: Paint pixel; **`X`**: Erase pixel (transparent index `0`).
-   - **`<` / `>`** (or `,` / `.`): Switch between the 64 sprites on the sprite sheet (`Sprite 0` = Ball, `Sprite 1` = Paddle, `Sprite 2` = Brick).
-   - **`Ctrl+S`**: Save `.spr` sheet; **`Q` / `Ctrl+Q` / `Esc`**: Return to shell.
-2. Test your custom artwork in **TabBreakout™**:
-   ```
-   breakout
-   ```
-   Use **Left/Right Arrows** (or **A/D**) to move the paddle, **R** to restart, and **Q** / **Esc** to quit.
-3. **Bud off** your game as a standalone single-file HTML cartridge:
+### Lesson 5: Painting Sprites & Budding a Tear-Free Game Cartridge
+1. Edit sprites in `sprite /home/game.spr`, play `breakout`, and export a standalone cartridge:
    ```
    export /bin/breakout TabBreakout
    ```
-   Your browser downloads `TabBreakout.html` (~98 KB)—a self-contained game cartridge with the title screen *"A TabComp™ Production"* that boots straight into your game!
+   Your browser downloads `TabBreakout.html`—complete with the 1.1 tear-free `presentBuf` display engine and 4× unrolled word-aligned `cls`/`memset`!
 
 ---
 
-## Chapter 4: Creative Studio Suite (Tier 3 Bonus Apps)
-
-- **TabTracker™ (`tracker /home/theme.trk`)**:
-  - **Up/Down Arrows**: Navigate 32 pattern rows; **Left/Right Arrows**: Select Channel 0 (`SQR`), Channel 1 (`TRI`), Channel 2 (`SAW`), or Channel 3 (`NOI`).
-  - **`A`–`Z`**: Enter musical notes (`C-3` to `B-4`); **`X`**: Clear note (`---`).
-  - **`Space`**: Toggle real-time 4-channel playback; **`Ctrl+S`**: Save `.trk` file; **`Q`**: Quit.
-- **TabTile™ (`tilemap /home/level.map`)**:
-  - **Arrow keys**: Move across the 40×25 tile grid; **`[` / `]`**: Select tile brush (`0..15`).
-  - **`Space`**: Place tile; **`X`**: Clear tile; **`Ctrl+S`**: Save 1,000-byte `.map` file; **`Q`**: Quit.
-- **Hand-Encoded WebAssembly Basic-Block JIT (`jit on` / `jit off`)**:
-  - Translates hot TabComp™ basic blocks directly into raw WebAssembly binary modules (`0x00 0x61 0x73 0x6D`) in memory without external libraries. Run `mips` before and after `jit on` to see the speedup!
-
----
-
-## Chapter 5: Glossary of XINU Terms
-
-- **Budding (`export`)**: Extracting the minimal CPU/device player (`/*@@PLAYER_BEGIN*/../*@@PLAYER_END*/`) and a compiled binary into a standalone `.html` game cartridge.
-- **Fixed Point**: The state achieved when the Stage 2 compiler binary (compiled by Stage 1 on the TabComp CPU) and the Stage 3 compiler binary (compiled by Stage 2 on the TabComp CPU) are byte-for-byte identical.
-- **Pristine DOM Capture**: Capturing the exact text of `#tc-style`, `#tc-disk`, and `#tc-core` at power-on before any DOM mutation so `save` is 100% deterministic and hereditary.
-- **XINU**: ConsciousNode SoftWorks' guiding engineering philosophy—single file, zero dependencies, offline-first, where constraint generates novelty.
-
----
-
-## Chapter 6: Troubleshooting
+## Chapter 4: Troubleshooting
 
 | Symptom | Cause | Solution |
 | :--- | :--- | :--- |

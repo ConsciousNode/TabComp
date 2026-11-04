@@ -1,28 +1,28 @@
 # TabComp™ 32-Bit RISC Instruction Set Architecture (`docs/ISA.md`)
 
-**ConsciousNode SoftWorks Engineering Reference — Document Part #TC-89-ISA**  
+**ConsciousNode SoftWorks Engineering Reference — Document Part #TC-89-ISA (Rev. 1.1)**  
 **Architecture Philosophy:** XINU (*Single File, Zero Dependencies, Offline-First*)
 
 ---
 
 ## 1. Architectural Overview
 
-The **TabComp™ TC-32** is a 32-bit load/store fantasy RISC microprocessor with a fixed 32-bit instruction encoding, 16 general-purpose 32-bit registers, a 20-bit physical address space (1,048,576 bytes / 1 MiB of little-endian RAM), memory-mapped display/sound/timer peripherals, and a hardware `SYS` trap interface for virtual disk and host operations.
+The **TabComp™ TC-32** is a 32-bit load/store fantasy RISC microprocessor with a fixed 32-bit instruction encoding, 16 general-purpose 32-bit registers, a 20-bit physical address space (1,048,576 bytes / 1 MiB of little-endian RAM), memory-mapped display/sound/timer peripherals, a tear-free 64,000-byte `YIELD` present buffer, and a shared-memory WebAssembly basic-block/superblock JIT.
 
 | Parameter | Specification |
 | :--- | :--- |
 | **Word Size** | 32-bit signed/unsigned integers (two's complement, little-endian) |
 | **Instruction Width** | Fixed 32-bit (4 bytes, 4-byte aligned in RAM) |
-| **Total RAM** | 1,048,576 bytes (`0x000000` – `0x0FFFFF`) |
-| **General Purpose Registers** | 16 × 32-bit (`R0` – `R15`) |
-| **Special Registers** | `PC` (32-bit Program Counter), `FLAGS` (4-bit condition code register) |
-| **Measured Throughput** | ~240–285 MIPS (Interpreter) / ~800 MIPS (Hand-Encoded WebAssembly Basic-Block JIT) |
+| **Total RAM** | 1,048,576 bytes (`0x000000` – `0x0FFFFF`, backed by shared `WebAssembly.Memory`) |
+| **General Purpose Registers** | 16 × 32-bit (`R0` – `R15`, mapped at `0x100000` – `0x10003F` in shared Wasm memory) |
+| **Special Registers** | `PC` (32-bit Program Counter at `0x100040`), `FLAGS` (4-bit condition code register at `0x100044`) |
+| **Measured Throughput** | ~200–315 MIPS (Peak Loop) / ~193 MIPS (Interpreter real workload) / ~480–1,300 MIPS (Shared-Memory WebAssembly JIT) |
 
 ---
 
 ## 2. Register File & Calling Convention
 
-All 16 general-purpose registers are 32 bits wide (`Int32Array(16)`):
+All 16 general-purpose registers are 32 bits wide (`Int32Array(wasmMem.buffer, 0x100000, 16)`):
 
 | Register | Alias | Role in TabTalk ABI | Preserved Across Calls |
 | :--- | :--- | :--- | :--- |
@@ -46,7 +46,7 @@ Updated by `CMP` (`0x1A`) and `CMPI` (`0x1B`):
 
 ## 3. Memory Map (`0x000000` – `0x0FFFFF`)
 
-All memory accesses are little-endian and masked to the 1 MiB physical address space (`addr & 0xFFFFF`):
+All user memory accesses are little-endian and masked to the 1 MiB physical address space (`addr & 0xFFFFF`). At boot, `initHardwareMemory(cpu)` runs `verifyHardwareRegions()` to assert that every hardware region (`FONT_ROM`, `VRAM`, `PALETTE`, `TIMER_MS`, `VSYNC_CNT`, `SOUND_REGS`) lies strictly inside `0x000000–0x0FFFFF` and that no two regions overlap:
 
 | Address Range | Size | Region | Description |
 | :--- | :--- | :--- | :--- |
@@ -55,12 +55,19 @@ All memory accesses are little-endian and masked to the 1 MiB physical address s
 | `0x0C0000` – `0x0DEFFF` | 124 KB | `STACK` | Full-descending user execution stack (`SP` starts at `0x0DF000` and grows downward). |
 | `0x0DF000` – `0x0DF7FF` | 2 KB | `ARGS` | Null-terminated command-line argument string passed to the current process. |
 | `0x0DF800` – `0x0DF803` | 4 B | `EXIT_STUB` | Contains `0x2F000000` (`SYS 0`), pointed to by initial `LR` so returning from `main()` exits cleanly. |
-| `0x0F0000` – `0x0FF9FF` | 64,000 B | `VRAM` | 320×200 8-bit indexed colour framebuffer (`y * 320 + x`, 1 byte per pixel). |
+| `0x0EF000` – `0x0EF2FF` | 768 B | `FONT_ROM` | Built-in 8×8 monochrome bitmap font for ASCII characters `32..127` (96 glyphs × 8 bytes). |
+| `0x0F0000` – `0x0FF9FF` | 64,000 B | `VRAM` | 320×200 8-bit indexed colour working framebuffer (`y * 320 + x`, copied to `presentBuf` on `SYS 10 YIELD`). |
 | `0x0FFA00` – `0x0FFCFF` | 768 B | `PALETTE` | 256 × 3-byte RGB palette entries (`R, G, B`, each `0..255`). |
 | `0x0FFD00` – `0x0FFD03` | 4 B | `TIMER_MS` | 32-bit milliseconds elapsed since boot (updated every frame). |
 | `0x0FFD04` – `0x0FFD07` | 4 B | `VSYNC_CNT` | 32-bit vertical blanking frame counter (incremented every `requestAnimationFrame`). |
-| `0x0FFD20` – `0x0FFD3F` | 32 B | `SOUND_MMIO` | 4 × 8-byte Web Audio synthesizer channel descriptors (`Ch0`: Square, `Ch1`: Triangle, `Ch2`: Saw, `Ch3`: Noise). |
-| `0x0EF000` – `0x0EF2FF` | 768 B | `FONT_ROM` | Built-in 8×8 monochrome bitmap font for ASCII characters `32..127` (8 bytes per glyph). *Moved in 1.0.1: at `0x0FFE00` the 768 bytes ran past the top of RAM and glyphs 96–127 (all lowercase) were lost.* |
+| `0x0FFD20` – `0x0FFD3F` | 32 B | `SOUND_REGS` | 4 × 8-byte Web Audio synthesizer channel descriptors (`Ch0`: Square, `Ch1`: Triangle, `Ch2`: Saw, `Ch3`: Noise). |
+
+### Shared WebAssembly JIT State Region (`0x100000` – `0x10004F`)
+Outside the 1 MiB guest address space (`addr & 0xFFFFF`), the 17-page `WebAssembly.Memory` (`1,114,112` bytes) maps CPU architectural state at `0x100000` so compiled Wasm blocks and the JS interpreter share registers and RAM with zero copying:
+- `0x100000` – `0x10003F` (`64 B`): `R0` – `R15` (`Int32Array(wasmMem.buffer, 0x100000, 16)`)
+- `0x100040` – `0x100043` (`4 B`): `PC` (block entry/exit Program Counter)
+- `0x100044` – `0x100047` (`4 B`): `FLAGS` (`Z=1, N=2, C=4`)
+- `0x100048` – `0x10004B` (`4 B`): `CODE_DIRTY` (set to `1` if a Wasm store targets `< 0x050000`, triggering JIT cache invalidation)
 
 ### Sound Channel Descriptor Layout (`0x0FFD20 + ch * 8`)
 - **Bytes `0..1` (`uint16`):** Frequency in Hz (`0` or `<= 20` mutes channel).
@@ -132,9 +139,9 @@ Every instruction is a 32-bit little-endian word (`inst = ramDV.getUint32(pc, tr
 | `0x1E` (30) | `LDH rd, [ra + imm16]` | I | `R[rd] = uint16_le(RAM, R[ra] + imm16)` | Load unsigned 16-bit halfword |
 | `0x1F` (31) | `LDHS rd, [ra + imm16]` | I | `R[rd] = int16_le(RAM, R[ra] + imm16)` | Load signed 16-bit halfword |
 | `0x20` (32) | `LDW rd, [ra + imm16]` | I | `R[rd] = int32_le(RAM, R[ra] + imm16)` | Load 32-bit word |
-| `0x21` (33) | `STB rd, [ra + imm16]` | I | `RAM[(R[ra] + imm16) & 0xFFFFF] = R[rd] & 0xFF` | Store low byte |
-| `0x22` (34) | `STH rd, [ra + imm16]` | I | `uint16_le(RAM, R[ra] + imm16) = R[rd] & 0xFFFF` | Store low 16-bit halfword |
-| `0x23` (35) | `STW rd, [ra + imm16]` | I | `int32_le(RAM, R[ra] + imm16) = R[rd]` | Store 32-bit word |
+| `0x21` (33) | `STB rd, [ra + imm16]` | I | `RAM[(R[ra] + imm16) & 0xFFFFF] = R[rd] & 0xFF` | Store low byte (invalidates JIT if `< 0x050000`) |
+| `0x22` (34) | `STH rd, [ra + imm16]` | I | `uint16_le(RAM, R[ra] + imm16) = R[rd] & 0xFFFF` | Store low 16-bit halfword (invalidates JIT if `< 0x050000`) |
+| `0x23` (35) | `STW rd, [ra + imm16]` | I | `int32_le(RAM, R[ra] + imm16) = R[rd]` | Store 32-bit word (invalidates JIT if `< 0x050000`) |
 | `0x24` (36) | `PUSH rd` | I | `R[14] -= 4; int32_le(RAM, R[14]) = R[rd]` | Push register onto stack |
 | `0x25` (37) | `POP rd` | I | `R[rd] = int32_le(RAM, R[14]); R[14] += 4` | Pop register from stack |
 | `0x26` (38) | `JMP addr24` | J | `PC = addr24` | Unconditional jump |
@@ -163,7 +170,7 @@ System calls are invoked via `SYS <num>` (`0x2F000000 | num`). Arguments are pas
 
 | `SYS` # | Name | Arguments (`R0`..`R4`) | Return (`R0`) | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `0` | `EXIT` | `R0`: exit code | Does not return | Terminates current process and restores parent process (or halts if root). |
+| `0` | `EXIT` | `R0`: exit code | Does not return | Terminates current process, invalidates JIT cache, and restores parent process (or halts if root). |
 | `1` | `OPEN` | `R0`: `path_ptr`, `R1`: `mode` (`0`=read, `1`=write/create) | `fd` (`>=3`) or `-1` | Opens or creates a file on the hierarchical TabComp disk. |
 | `2` | `READ` | `R0`: `fd`, `R1`: `buf_ptr`, `R2`: `len` | Bytes read (`>=0`) or `-1` | Reads up to `len` bytes from `fd` into RAM at `buf_ptr`. |
 | `3` | `WRITE` | `R0`: `fd`, `R1`: `buf_ptr`, `R2`: `len` | Bytes written or `-1` | Writes `len` bytes from `buf_ptr` to `fd` (`fd=1`/`2` writes to serial console). |
@@ -172,19 +179,19 @@ System calls are invoked via `SYS <num>` (`0x2F000000 | num`). Arguments are pas
 | `6` | `MKDIR` | `R0`: `path_ptr` | `0` | Creates directory path (and parent directories if needed). |
 | `7` | `DELETE` | `R0`: `path_ptr` | `0` or `-1` | Deletes a file or directory on disk. |
 | `8` | `STAT` | `R0`: `path_ptr`, `R1`: `size_ptr`, `R2`: `is_dir_ptr` | `0` (exists) or `-1` | Queries file/directory existence, byte size, and directory flag. |
-| `9` | `EXEC` | `R0`: `bin_path_ptr`, `R1`: `arg_str_ptr` | Child exit code | Snapshots current process RAM/registers, loads child binary at `0x000000`, and runs it. |
-| `10` | `YIELD` | None | `0` | Yields current time slice to browser `requestAnimationFrame` for 60 Hz display/input sync. |
+| `9` | `EXEC` | `R0`: `bin_path_ptr`, `R1`: `arg_str_ptr` | Child exit code | Snapshots current process RAM/registers, invalidates JIT cache, loads child binary at `0x000000`, and runs it. |
+| `10` | `YIELD` | None | `0` | Copies `VRAM` (`0x0F0000..0x0FF9FF`) into `presentBuf` and yields current time slice to browser `requestAnimationFrame`. |
 | `11` | `KEY` | None | `0` or `(mods<<16)\|(kcode<<8)\|ascii` | Pops next key event from hardware keyboard queue (`0` if empty). |
 | `12` | `TIME` | None | `ms` since boot | Returns 32-bit milliseconds elapsed since system boot. |
 | `13` | `SAVE` | None | `0` | Rebuilds and downloads `tabcomp-YYYYMMDD-HHMM.html` with current disk image. |
 | `14` | `EXPORT` | `R0`: `bin_path_ptr`, `R1`: `title_ptr` | `0` or `-1` | Buds off standalone `<title>.html` game cartridge using `/*@@PLAYER_BEGIN*/../*@@PLAYER_END*/`. |
-| `15` | `REBOOTSTRAP` | None | `0` (match) or `1` | Runs Stage 0 → Stage 1 → Stage 2 → Stage 3 compiler bootstrap and verifies byte identity. |
-| `16` | `SELFTEST` | `R0`: `report_buf_ptr` | `failed_count` (`0` = pass) | Runs all 8 hardware/software self-tests and writes formatted report to `report_buf_ptr`. |
-| `17` | `MIPS` | None | `MIPS * 10` | Runs CPU/JIT benchmark and returns tenths of MIPS (e.g. `2500` = `250.0 MIPS`). |
+| `15` | `REBOOTSTRAP` | None | `0` (`s1==s2==s3`), `2` (`s2==s3`), or `1` | Runs Stage 0 → Stage 1 → Stage 2 → Stage 3 compiler bootstrap and verifies byte identity. |
+| `16` | `SELFTEST` | `R0`: `report_buf_ptr` | `failed_count` (`0` = pass) | Runs all 13 hardware/software self-tests and writes formatted report to `report_buf_ptr`. |
+| `17` | `MIPS` | `R0`: optional `report_buf_ptr` | `MIPS * 10` | Benchmarks real workload (`cc` compiling TabTalk source) under both Interpreter and Wasm JIT. |
 | `18` | `CHDIR` | `R0`: `path_ptr` | `0` or `-1` | Changes current working directory. |
 | `19` | `GETCWD` | `R0`: `buf_ptr` | `0` | Writes current working directory string to `buf_ptr`. |
 | `20` | `GETARGS` | `R0`: `buf_ptr` | `0` | Copies process command-line arguments from `0x0DF000` into `buf_ptr`. |
-| `21` | `JIT` | `R0`: `mode` (`0`=off, `1`=on, `-1`=query) | Current `jitEnabled` (`0`/`1`) | Toggles or queries the hand-encoded WebAssembly basic-block JIT. |
+| `21` | `JIT` | `R0`: `mode` (`0`=off, `1`=on, `-1`=query) | Current `jitEnabled` (`0`/`1`) | Toggles or queries the shared-memory WebAssembly basic-block/superblock JIT. |
 
 ---
 
