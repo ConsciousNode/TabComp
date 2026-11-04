@@ -36,17 +36,17 @@ Stage 1 is built by the JavaScript compiler, which knows nothing about the edit.
 
 ## Bugs found
 
-### 1. Lowercase letters were garbage (fixed in 1.0.1)
+### 1. Lowercase letters were garbage (found in 1.0, fixed in 1.0.1)
 
 The 8×8 font (ASCII 32–127, 96 glyphs × 8 bytes = **768 bytes**) was loaded at `0x0FFE00`. RAM ends at `0x100000`, and `0x0FFE00 + 768 = 0x100100`, so only the first 64 glyphs (space through `_`, which includes all the uppercase) fit. Glyphs 96–127 (`` ` ``, **every lowercase letter**, `{|}~`) were never stored. The CPU masks addresses to 1 MiB, so reading them wrapped around to address 0, and the shell drew its own machine code as lowercase letters.
 
 **Fix:** the font moved to `0x0EF000`, which is unused: program loading and process snapshots only touch `0x000000–0x0DFFFF`. Three places changed: `initHardwareMemory`, the boot banner's `drawStr`, and `const FONT_ADDR` in `/src/lib/std.tt`. Then **TabComp rebuilt itself:** `rebootstrap`, then `cc` for `sh`, `edit`, `sprite`, `breakout`, `tracker` and `tilemap`, then `save`. `versions/tabcomp-1.0.1.html` (identical to `index.html`) is that saved file, and `cartridges/TabBreakout.html` was re-exported from it.
 
-### 2. The WebAssembly JIT didn't run programs (reported for 1.1, fixed in 1.1)
+### 2. The WebAssembly JIT didn't run programs (found in 1.0, fixed by Argon in 1.1)
 
 `TabCompWasmJIT.compileBasicBlock` really does hand-emit a valid WebAssembly binary. But it is called only from `benchmarkMips()`, on a synthetic loop of 15 `ADDI` instructions. `stepBatch()` never runs JIT code, so `jit on` only changes the MIPS badge, and the "~800 MIPS" is that toy loop. If the block fails to compile, the benchmark returns `interpMips * 2.5`, a number nobody measured. `docs/FEATURES.md` has been corrected to `partial`.
 
-### 3. Breakout flickered on slower devices (reported for 1.1, fixed in 1.1)
+### 3. Breakout flickered on slower devices (found in 1.0, fixed by Argon in 1.1)
 
 The player runs the CPU for up to 8 ms per animation frame and then shows video memory **whether or not the program has finished drawing**. Breakout clears the screen with a byte-at-a-time `memset` over 64,000 pixels (roughly 500,000+ instructions), so on a phone most frames are shown half-drawn. The fix requested: present a frame only on `yield()`, and use 32-bit word stores in `memset`/`memcpy`.
 

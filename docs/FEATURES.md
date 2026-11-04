@@ -4,6 +4,8 @@
 
 ---
 
+> **Note (Kehai Interim, 2026-11-03):** this truth table is Argon's own report of its own testing (its Selenium setup and its figures). The independent checks, made with this repo's Playwright tests, and their numbers are in [`TESTING.md`](../TESTING.md). They agree on every status; the speed figures differ because they were measured on different machines.
+
 ## 1. Version 1.1 Patch Verification Table
 
 Every item below was **actually executed and verified** in both Node.js (`v18.20.4`) and **Headless Chromium (`156.0.8078.73`)** via Selenium WebDriver (`test_chromium_11.py`), starting strictly from `tabcomp-1.0.1-kehai-fix-1.html`.
