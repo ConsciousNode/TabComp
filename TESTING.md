@@ -8,21 +8,26 @@ node tests/verify.mjs                          # tests index.html (now 1.1.1)
 node tests/verify.mjs versions/tabcomp-1.0.html
 node tests/flicker.mjs [file] [throttle] [on|off]   # Breakout: torn frames and frames per second
 node tests/tabkey.mjs [file]                   # the on-screen keyboard, as a touch phone
+node tests/pacing.mjs [file] [throttle] [clock]   # Breakout ball speed in pixels per second
+node tests/tabpad.mjs [cartridge]              # the cartridge game pad, as a touch phone
 ```
 
 ## Results
 
-| Check | 1.0 (as delivered) | 1.0.1 | 1.1 | 1.1.1 |
-|---|---|---|---|---|
-| Self-test (`window.TABCOMP_SELFTEST()`) | 8/8 | 8/8 | 13/13 | 13/13 |
-| No page errors, no network requests | ✓ | ✓ | ✓ | ✓ |
-| Save identity (`save` reproduces the running file) | ✗ by one byte, see below | ✓ byte for byte | ✓ (same lost newline, restored) | ✓ byte for byte |
-| Heredity (child = grandchild = great-grandchild) | ✓ | ✓ | ✓ | ✓ |
-| Tamper test: rebuilt `/bin/cc` ends in `KEHA` | ✓ | ✓ | ✓ | ✓ |
-| Tamper test: program compiled on the CPU ends in `KEHA` | ✓ | ✓ | ✓ | ✓ |
-| Lowercase text renders | ✗ garbled | ✓ | ✓ | ✓ |
-| Breakout torn frames (5 s, phone-speed throttle) | many | 98 (1.0.2) | **0** | **0** |
-| On-screen keyboard types into the shell | n/a | n/a (1.0.2 ✓) | n/a | ✓ |
+| Check | 1.0 (as delivered) | 1.0.1 | 1.1 | 1.1.1 | 1.2 | 1.2.1 |
+|---|---|---|---|---|---|---|
+| Self-test (`window.TABCOMP_SELFTEST()`) | 8/8 | 8/8 | 13/13 | 13/13 | 16/16 | 16/16 |
+| No page errors, no network requests | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Save identity (`save` reproduces the running file) | ✗ by one byte, see below | ✓ byte for byte | ✓ (same lost newline, restored) | ✓ byte for byte | ✓ (same lost newline, restored) | ✓ byte for byte |
+| Heredity (child = grandchild = great-grandchild) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Tamper test: rebuilt `/bin/cc` ends in `KEHA` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Tamper test: program compiled on the CPU ends in `KEHA` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Lowercase text renders | ✗ garbled | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Breakout torn frames (5 s, phone-speed throttle) | many | 98 (1.0.2) | **0** | **0** | **0** | **0** |
+| On-screen keyboard types into the shell | n/a | n/a (1.0.2 ✓) | n/a | ✓ | ✓ | ✓ |
+| Breakout ball speed, desktop vs phone speed | | | 240 vs 114 px/s (1.1.1) | | 248 vs 246 px/s | 237 px/s (phone, `clock 25`) |
+| Cartridge TabPad™ moves the paddle (Pixel 7) | | | n/a | n/a | ✓ | ✓ |
+| `clock 25` delivers 25 MIPS on a real job | | | n/a | n/a | ✗ (Enter bypass, see below) | ✓ 25.1 |
 
 ## The tamper test (is the self-hosting real?)
 
@@ -78,6 +83,27 @@ Small things noticed, none of them blocking:
 ## 1.1.1: TabKey™ on 1.1
 
 The same keyboard as 1.0.2, carried over unchanged: 1.1's keyboard handler became the named function `tcHandleKey`, and the board's styles and builder were added after it, exactly as in 1.0.2. Nothing else differs from 1.1 except the version label. `tests/tabkey.mjs` (Pixel 7 emulation) types `ver` and `ls /bin` on the on-screen keys alone, and `tests/verify.mjs` passes all 7 checks, including byte-for-byte save identity.
+
+## 1.2: auditing Argon's patch
+
+Each 1.2 feature was driven through the real page in headless Chromium, not just through the self-test hook.
+
+- **TURBO and `clock`.** The JIT is on at boot. The TURBO button, its LED, the badge and the `clock` command stay in sync. The governor itself is exact: logged frame by frame at `clock 25`, each 60 Hz frame ran about 417,000 instructions, which is 25 MIPS. Exported cartridges remember their clock (`INITIAL_CLOCK = 25` when exported at `clock 25`).
+- **Command history and Tab completion.** With real key presses: `ver`, `ls`, ↑, ↑ brings back `ver`. `cat /READ` + Tab completes `/README.TXT`. `history` lists the commands, and `!2` re-runs entry 2.
+- **Breakout keeps time.** `tests/pacing.mjs` tracks the ball on screen. In 1.2 the ball moved at about 225–250 px/s at full speed and `clock 25`, at desktop speed and with the CPU throttled 6× (phone speed). That spread is within the tracker's noise. In 1.1.1 the same ball ran at 240 px/s on desktop and **114 px/s** at phone speed.
+- **TabPad™.** In a Pixel 7 emulation the cartridge shows its pad automatically, and holding the on-screen ▶ and ◀ moves the paddle across the screen and back. The cartridge no longer carries TabKey's styles. Argon's `TabBreakout.html` is byte-identical to what 1.2 exports.
+- **Small things checked:** the JIT's block tag check (`blk.startPc !== pc` on lookup) and the single version string (`const VERSION` in the core, `sys_version()` in `std.tt`) are both in place.
+
+### Bug found and fixed in 1.2.1: Enter bypassed the clock
+
+To make commands feel instant, the keyboard handler runs a burst of up to 100 million instructions the moment you press Enter (or Ctrl+S, Ctrl+Q), until the program first calls `yield()`. That burst is older than 1.2 and never went through the new governor. So at `clock 25`, anything launched from the shell ran at full speed until it yielded: compiling the compiler (58 million instructions) finished almost entirely outside the clock. Argon's self-test #14 runs the governor directly, so it couldn't see this.
+
+**Fix (one condition):** the burst runs only when TURBO is on (`cpu.clockRate === 0`). The version moved to 1.2.1 everywhere, including `sys_version()` in `/src/lib/std.tt` and `/README.TXT`. Then **TabComp rebuilt itself**: `rebootstrap` (fixed point verified), `cc` for all six apps, `save`. Self-test #11 confirms all 7 binaries match their sources. **After the fix,** that 58-million-instruction compile takes 2.31 s at `clock 25` (25.1 MIPS), with zero instructions outside the governor. With TURBO on, the instant burst still works (0.33 s).
+
+### Noted, not changed
+
+- **Breakout's bricks changed look.** In 1.1, each brick had a 16×16 sprite from `/home/game.spr` drawn on top. In 1.2, Argon draws bricks as plain shaded rectangles: cheaper to draw, but the brick sprite in the sprite editor no longer affects the game. That's a design decision for the studio, not a bug.
+- **TURBO off returns to your last chosen clock.** After `clock 10` then `clock max`, pressing TURBO goes to 10 MIPS. `clock off` always goes to 25.
 
 ## Measured (1.0)
 

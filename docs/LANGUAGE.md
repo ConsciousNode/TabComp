@@ -1,6 +1,6 @@
 # TabTalk™ Systems Programming Language (`docs/LANGUAGE.md`)
 
-**ConsciousNode SoftWorks Language Reference — Document Part #TC-89-LANG (Rev. 1.1)**  
+**ConsciousNode SoftWorks Language Reference — Document Part #TC-89-LANG (Rev. 1.2)**  
 **Compiler Binary:** `/bin/cc` (compiled from `/src/cc.tt` in TabTalk itself)
 
 ---
@@ -165,4 +165,7 @@ TabTalk supports full structured control flow:
 - `int text(int x, int y, byte* s, int fg, int bg)`: Renders a null-terminated string using the 8×8 font.
 - `int blit(int x, int y, int w, int h, byte* data, int transparent)`: Clipped sprite blitter skipping `transparent` colour index.
 - `int sound(int ch, int freq, int vol, int duty)`: Programs Web Audio synthesizer channel `0..3` at `0x0FFD20`.
-- `int getkey()` / `int millis()`: Reads hardware key queue or millisecond timer.
+- `int getkey()` / `int millis()`: Reads hardware key queue or monotonic millisecond timer (`SYS 12` / `0x0FFD00`).
+- `int sys_jit(int mode)`: Enables (`1`), disables (`0`), or queries (`-1`) the WebAssembly JIT (`SYS 21`).
+- `int sys_clock(int rate)`: Sets (`0` = `MAX`, `1..1000` = fixed MIPS) or queries (`-1`) the hardware clock governor (`SYS 22`).
+- `byte* sys_version()`: Returns the single canonical OS version string (`"1.2"`).

@@ -1,6 +1,6 @@
 # TabComp™ 32-Bit RISC Instruction Set Architecture (`docs/ISA.md`)
 
-**ConsciousNode SoftWorks Engineering Reference — Document Part #TC-89-ISA (Rev. 1.1)**  
+**ConsciousNode SoftWorks Engineering Reference — Document Part #TC-89-ISA (Rev. 1.2)**  
 **Architecture Philosophy:** XINU (*Single File, Zero Dependencies, Offline-First*)
 
 ---
@@ -186,12 +186,13 @@ System calls are invoked via `SYS <num>` (`0x2F000000 | num`). Arguments are pas
 | `13` | `SAVE` | None | `0` | Rebuilds and downloads `tabcomp-YYYYMMDD-HHMM.html` with current disk image. |
 | `14` | `EXPORT` | `R0`: `bin_path_ptr`, `R1`: `title_ptr` | `0` or `-1` | Buds off standalone `<title>.html` game cartridge using `/*@@PLAYER_BEGIN*/../*@@PLAYER_END*/`. |
 | `15` | `REBOOTSTRAP` | None | `0` (`s1==s2==s3`), `2` (`s2==s3`), or `1` | Runs Stage 0 → Stage 1 → Stage 2 → Stage 3 compiler bootstrap and verifies byte identity. |
-| `16` | `SELFTEST` | `R0`: `report_buf_ptr` | `failed_count` (`0` = pass) | Runs all 13 hardware/software self-tests and writes formatted report to `report_buf_ptr`. |
+| `16` | `SELFTEST` | `R0`: `report_buf_ptr` | `failed_count` (`0` = pass) | Runs all 16 hardware/software self-tests and writes formatted report to `report_buf_ptr`. |
 | `17` | `MIPS` | `R0`: optional `report_buf_ptr` | `MIPS * 10` | Benchmarks real workload (`cc` compiling TabTalk source) under both Interpreter and Wasm JIT. |
 | `18` | `CHDIR` | `R0`: `path_ptr` | `0` or `-1` | Changes current working directory. |
 | `19` | `GETCWD` | `R0`: `buf_ptr` | `0` | Writes current working directory string to `buf_ptr`. |
 | `20` | `GETARGS` | `R0`: `buf_ptr` | `0` | Copies process command-line arguments from `0x0DF000` into `buf_ptr`. |
-| `21` | `JIT` | `R0`: `mode` (`0`=off, `1`=on, `-1`=query) | Current `jitEnabled` (`0`/`1`) | Toggles or queries the shared-memory WebAssembly basic-block/superblock JIT. |
+| `21` | `JIT` | `R0`: `mode` (`0`=off, `1`=on, `-1`=query) | Current `jitEnabled` (`0`/`1`) | Toggles or queries the shared-memory WebAssembly basic-block/superblock JIT (ON by default at boot when `WebAssembly` is available). |
+| `22` | `CLOCK` | `R0`: `rate` (`0`=max, `1..1000`=MIPS, `-1`=query) | Current `clockRate` (`0`=max, `1..1000`=MIPS) | Sets or queries the CPU clock governor in MIPS (`0` = Turbo ON / `MAX`; `25` = default compatibility clock when Turbo is OFF). Syncs with the chassis `TURBO` button and LED. |
 
 ---
 
