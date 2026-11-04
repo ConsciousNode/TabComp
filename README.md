@@ -35,7 +35,8 @@ The full 1989-style manual is in [`docs/MANUAL.md`](docs/MANUAL.md). There's als
 
 | File | What |
 |---|---|
-| `index.html` | Current: **1.2.1** (identical to `versions/tabcomp-1.2.1.html`) |
+| `index.html` | Current: **1.2.2** (identical to `versions/tabcomp-1.2.2.html`) |
+| `versions/tabcomp-1.2.2.html` | 1.2.1 with Breakout's sprite bricks back (B switches to plain bricks) and no half-drawn frames at slow clocks |
 | `versions/tabcomp-1.2.1.html` | 1.2 with one fix (Enter no longer bypasses the clock), rebuilt by its own compiler |
 | `versions/tabcomp-1.2.html` | Argon's 1.2: TURBO button and clock governor, command history and Tab completion, fixed-timestep Breakout, JIT on at boot, TabPad™ for cartridges |
 | `versions/tabcomp-1.1.1.html` | 1.1 with **TabKey™ 101** carried over (the on-screen keyboard for phones and tablets) |
@@ -43,7 +44,7 @@ The full 1989-style manual is in [`docs/MANUAL.md`](docs/MANUAL.md). There's als
 | `versions/tabcomp-1.0.2.html` | Adds TabKey™ 101 to 1.0.1 |
 | `versions/tabcomp-1.0.1.html` | 1.0 with the font fix, rebuilt by its own compiler |
 | `versions/tabcomp-1.0.html` | The original, as delivered |
-| `cartridges/TabBreakout.html` | Budded from 1.2.1 (TabPad™, TURBO, steady speed) |
+| `cartridges/TabBreakout.html` | Budded from 1.2.2 (sprite bricks, TabPad™, TURBO, steady speed) |
 | `cartridges/TabBreakout-1.1.html` | Budded from 1.1 |
 | `cartridges/TabBreakout-1.0.1.html` | Budded from 1.0.1 |
 | `cartridges/TabBreakout-1.0.html` | The original pre-exported cartridge |
@@ -53,6 +54,6 @@ The full 1989-style manual is in [`docs/MANUAL.md`](docs/MANUAL.md). There's als
 - **Concept and direction:** Khamerron Kizer, ConsciousNode SoftWorks
 - **Written by:** Gemini 4 Argon: 1.0 in one shot from a tiered spec, then the 1.1 and 1.2 patches
 - **Review:** Jeep (ChatGPT)
-- **Specs, testing, the 1.0.1 and 1.2.1 fixes, and TabKey™ 101:** Kehai Interim (Claude). See [TESTING.md](TESTING.md)
+- **Specs, testing, the 1.0.1, 1.2.1 and 1.2.2 fixes, and TabKey™ 101:** Kehai Interim (Claude). See [TESTING.md](TESTING.md)
 
 MIT License.

@@ -3,7 +3,7 @@
 // roughly a phone), records every frame the page paints to the canvas, and
 // counts torn frames (and, on 1.1+, real presents per second): frames where a big part of the picture (bricks, paddle)
 // is suddenly missing because the screen was shown halfway through a redraw.
-//   node tests/flicker.mjs [path/to/tabcomp.html] [throttle] [jit:on|off]
+//   node tests/flicker.mjs [path/to/tabcomp.html] [throttle] [jit:on|off] [clock: max|25|...]
 import { chromium } from 'playwright';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +11,8 @@ import { fileURLToPath } from 'node:url';
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const target = path.resolve(process.argv[2] || path.join(root, 'index.html'));
 const throttle = Number(process.argv[3] || 6);
-const jit = process.argv[4] === 'on';
+const jit = process.argv[4] !== 'off';
+const clock = process.argv[5] || 'max';
 
 const br = await chromium.launch();
 const p = await br.newPage({ viewport: { width: 1000, height: 760 } });
@@ -36,7 +37,8 @@ await p.addInitScript(() => {
 await p.goto('file://' + target); await p.waitForTimeout(2500);
 await p.click('canvas').catch(() => {});
 const type1 = async (s, w = 1500) => { await p.keyboard.type(s, { delay: 12 }); await p.keyboard.press('Enter'); await p.waitForTimeout(w); };
-if (jit) await type1('jit on', 4000);
+await type1(jit ? 'jit on' : 'jit off', 3000);
+if (clock !== 'max') await type1('clock ' + clock, 800);
 await type1('breakout', 2000);
 await p.keyboard.press('Space'); await p.waitForTimeout(300);
 const cdp = await p.context().newCDPSession(p);
@@ -56,5 +58,5 @@ const secs = (frames.at(-1).t - frames[0].t) / 1000;
 const fgs = uniq.map(f => f.fg).sort((a, b) => a - b);
 const median = fgs[Math.floor(fgs.length / 2)];
 const torn = uniq.filter(f => f.fg < median * 0.6).length;
-console.log(JSON.stringify({ file: path.basename(target), throttle, jit, paints: frames.length, newPictures: uniq.length,
+console.log(JSON.stringify({ file: path.basename(target), throttle, jit, clock, paints: frames.length, newPictures: uniq.length,
   seconds: +secs.toFixed(1), fps: +(uniq.length / secs).toFixed(1), presentsPerSec: +(presents / secs).toFixed(1), medianForegroundPixels: median, tornFrames: torn }));

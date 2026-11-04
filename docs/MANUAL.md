@@ -67,7 +67,7 @@ Your 40×25 graphical text shell (`/src/sh.tt`) renders directly into the 320×2
 | **`cc`** | `cc <src.tt> -o <bin>` | Compiles a TabTalk source file using the self-hosted compiler (`/bin/cc`). |
 | **`run`** | `run <bin> [args]` | Executes compiled binary `<bin>` (or simply type the binary's name directly!). |
 | **`sprite`** | `sprite [file.spr]` | Launches **TabSprite™** 16×16 Sprite Sheet Editor (default `/home/game.spr`). |
-| **`breakout`** | `breakout` | Launches **TabBreakout™** arcade game with 16 ms fixed-timestep physics and 4-channel sound. |
+| **`breakout`** | `breakout` | Launches **TabBreakout™** arcade game with 16 ms fixed-timestep physics and 4-channel sound. Press **B** to switch between sprite bricks (painted in TabSprite™, the default) and plain fast bricks. |
 | **`tracker`** | `tracker [file.trk]` | Launches **TabTracker™** 4-channel chiptune music studio (default `/home/theme.trk`). |
 | **`tilemap`** | `tilemap [file.map]` | Launches **TabTile™** 40×25 level tile map editor (default `/home/level.map`). |
 | **`rebootstrap`** | `rebootstrap` | Rebuilds `/src/cc.tt` through Stages 1, 2, and 3 and verifies fixed point (`Stage 1 == 2 == 3`). |

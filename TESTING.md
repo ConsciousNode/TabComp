@@ -10,6 +10,7 @@ node tests/flicker.mjs [file] [throttle] [on|off]   # Breakout: torn frames and 
 node tests/tabkey.mjs [file]                   # the on-screen keyboard, as a touch phone
 node tests/pacing.mjs [file] [throttle] [clock]   # Breakout ball speed in pixels per second
 node tests/tabpad.mjs [cartridge]              # the cartridge game pad, as a touch phone
+node tests/gamespeed.mjs [file]                # Breakout game speed from its own physics counter
 ```
 
 ## Results
@@ -28,6 +29,7 @@ node tests/tabpad.mjs [cartridge]              # the cartridge game pad, as a to
 | Breakout ball speed, desktop vs phone speed | | | 240 vs 114 px/s (1.1.1) | | 248 vs 246 px/s | 237 px/s (phone, `clock 25`) |
 | Cartridge TabPad™ moves the paddle (Pixel 7) | | | n/a | n/a | ✓ | ✓ |
 | `clock 25` delivers 25 MIPS on a real job | | | n/a | n/a | ✗ (Enter bypass, see below) | ✓ 25.1 |
+| No fallback (torn) frames in Breakout at `clock 10` | | | | | ✗ 23 of 46 | ✓ 0 in 1.2.2 |
 
 ## The tamper test (is the self-hosting real?)
 
@@ -102,8 +104,30 @@ To make commands feel instant, the keyboard handler runs a burst of up to 100 mi
 
 ### Noted, not changed
 
-- **Breakout's bricks changed look.** In 1.1, each brick had a 16×16 sprite from `/home/game.spr` drawn on top. In 1.2, Argon draws bricks as plain shaded rectangles: cheaper to draw, but the brick sprite in the sprite editor no longer affects the game. That's a design decision for the studio, not a bug.
 - **TURBO off returns to your last chosen clock.** After `clock 10` then `clock max`, pressing TURBO goes to 10 MIPS. `clock off` always goes to 25.
+
+## 1.2.2: sprite bricks back, and no torn frames at slow clocks
+
+**Sprite bricks restored (the studio's call).** In 1.1, each Breakout brick had sprite 2 from `/home/game.spr` stamped on it, so painting that sprite in the sprite editor changed the game. Argon's 1.2 replaced them with plain shaded bricks. 1.2.2 brings the sprite bricks back as the default and keeps Argon's plain bricks one key away: press **B** in the game. Proof that everything connects again: painting magenta stripes into sprite 2 of `game.spr` puts magenta stripes on every brick in the game.
+
+The physics step cap went from 4 to 6 per drawn frame (and the clamp from 64 to 96 ms), so game time keeps up down to about 10 fps.
+
+**Bug found and fixed: the 100 ms fallback tore frames at slow clocks.** The fallback exists to show output from programs that never call `yield()`. It fired after 100 ms *of wall time* without a yield. At `clock 10`, a Breakout frame with sprite bricks takes about 160 ms, so half the frames shown were fallback copies taken mid-draw (a third at `clock 15`, none at `clock 25` or TURBO). **Fix:** the fallback now also waits until the program has run 4 million instructions without a yield (twice Breakout's biggest frame). It's in the CPU, inside the `@@PLAYER` region, so cartridges have it too. After the fix: zero fallback frames during Breakout at `clock 5`, `10`, `15`, `25` and TURBO, and a non-yielding compile at `clock 5` still shows its "Compiling..." line while it runs.
+
+**How fast is the game, really?** `tests/gamespeed.mjs` reads Breakout's own physics step counter from RAM (the on-screen ball tracker in `pacing.mjs` undercounts at low frame rates):
+
+| CPU | Clock | Bricks | Frames/s | Game speed |
+|---|---|---|---|---|
+| desktop | TURBO | sprite | 60.1 | 100.0% |
+| phone speed (6× throttle) | TURBO | sprite | 28.3 | 99.6% |
+| phone speed | `clock 25` | sprite | 15.6 | 99.1% |
+| phone speed | `clock 25` | plain | 30.7 | 100.8% |
+| desktop | `clock 10` | sprite | 6.0 | 57.6% |
+| desktop | `clock 10` | plain | 12.0 | 99.7% |
+
+Below about 15 MIPS, sprite bricks can't be drawn fast enough to keep game time; press B for plain bricks.
+
+Then TabComp rebuilt itself as for 1.2.1 (`rebootstrap`, `cc` for all six apps, `save`), and `TabBreakout.html` was re-exported. All checks pass: 16/16 self-tests, KEHA, save identity, heredity, TabKey, TabPad, 0 torn frames.
 
 ## Measured (1.0)
 

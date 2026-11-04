@@ -49,13 +49,18 @@ await br.close();
 
 // The ball is 16x16 with transparency: count a frame as "ball in band" when the
 // non-background pixel count looks like one ball, fully inside the band.
-const ok = f => f.n >= 20 && f.n <= 260 && f.y > 130 && f.y < 164;
+// Only count frames where the whole ball is visible: a ball half outside the
+// band has fewer pixels and a centre pulled toward the band, which would make
+// big per-frame jumps (low fps) look shorter than they are.
+const ns = B.filter(f => f.n >= 20 && f.n <= 260).map(f => f.n).sort((a, b) => a - b);
+const full = ns.length ? ns[Math.floor(ns.length * 0.9)] : 0;
+const ok = f => f.n >= 20 && f.n <= 260 && f.n >= full * 0.92;
 let dist = 0, time = 0, pairs = 0;
 for (let i = 1; i < B.length; i++) {
   const a = B[i - 1], b = B[i];
   if (!ok(a) || !ok(b)) continue;
   const step = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
-  if (step > 40) continue; // ball respawned
+  if (step > 60) continue; // ball respawned
   dist += step; time += b.t - a.t; pairs++;
 }
 const changes = B.filter((f, i) => i && (f.x !== B[i - 1].x || f.y !== B[i - 1].y)).length;
