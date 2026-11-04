@@ -7,7 +7,7 @@
 A complete personal computer in **one HTML file**, under the ConsciousNode **Xinu** philosophy: single file, zero dependencies, offline-first, *constraint generates novelty*.
 
 - **A 32-bit fantasy CPU:** 16 registers, 16 MiB of RAM, a 320×200 display with 256 colours, 4-channel sound and 8-bit PCM.
-- **It runs DOOM.** Not a lookalike: the real DOOM engine ([doomgeneric](https://github.com/ozkl/doomgeneric)), compiled from its unmodified C source *by TabComp's own C compiler, on the TabComp CPU*, playing Freedoom. See [docs/DOOM.md](docs/DOOM.md).
+- **It runs DOOM.** Not a lookalike: the real DOOM engine ([doomgeneric](https://github.com/ozkl/doomgeneric)), compiled from its unmodified C source *by TabComp's own C compiler, on the TabComp CPU*, playing Freedoom. **[Play the cartridge](cartridges/DOOM.html)** or see [docs/DOOM.md](docs/DOOM.md).
 - **A C toolchain written in TabTalk:** `c89`, `cpp`, `cc1`, `ld` and a libc, all source on the disk.
 - **TabTalk,** its own systems language, with a **compiler written in TabTalk that compiles itself.** Stage 2 and stage 3 of the bootstrap are byte-identical, and the self-hosting is [independently verified](TESTING.md).
 - **Everything you use is software running on the machine:** the shell, a full-screen editor, a sprite editor, a chiptune tracker, a tile mapper and *TabBreakout*, all as TabTalk source on the disk, which you can edit and recompile from inside TabComp.
@@ -48,6 +48,7 @@ The full 1989-style manual is in [`docs/MANUAL.md`](docs/MANUAL.md). There's als
 | `versions/tabcomp-1.0.2.html` | Adds TabKey™ 101 to 1.0.1 |
 | `versions/tabcomp-1.0.1.html` | 1.0 with the font fix, rebuilt by its own compiler |
 | `versions/tabcomp-1.0.html` | The original, as delivered |
+| `cartridges/DOOM.html` | **Real DOOM, one HTML file (40 MB):** built on TabComp 1.3.1 by its own C compiler, with Freedoom inside. GPL-2.0; source in `third_party/doomgeneric/` |
 | `cartridges/TabBreakout.html` | Budded from 1.3.1 |
 | `cartridges/TabBreakout-1.3.html` | Budded from 1.3 by Argon |
 | `cartridges/DOOMBench-1.3.html` | Argon's `doombench`, a DOOM-style renderer benchmark (not id's engine) |
@@ -63,4 +64,4 @@ The full 1989-style manual is in [`docs/MANUAL.md`](docs/MANUAL.md). There's als
 - **Review:** Jeep (ChatGPT)
 - **Specs, testing, the 1.0.1, 1.2.1, 1.2.2 and 1.3.1 fixes, the DOOM build, and TabKey™ 101:** Kehai Interim (Claude). See [TESTING.md](TESTING.md)
 
-MIT License.
+MIT License, except `cartridges/DOOM.html` and `third_party/doomgeneric/` (GPL-2.0; the Freedoom WAD inside the cartridge is BSD, notice included).

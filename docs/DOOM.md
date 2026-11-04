@@ -4,9 +4,13 @@ TabComp builds the real DOOM engine itself: every C file is compiled by `/bin/c8
 
 ![DOOM running in TabComp 1.3.1: the demo, then E1M1 after New Game](images/doom-on-tabcomp-1.3.1.png)
 
+## Just play it
+
+[`cartridges/DOOM.html`](../cartridges/DOOM.html) is one 40 MB HTML file: the TabComp player, `/bin/doom` and the Freedoom Phase 1 WAD. Open it in a browser, offline, and it boots straight into DOOM. It was made exactly as below, in the real 1.3.1 page, then `export /bin/doom DOOM --gpl`.
+
 ## What you need
 
-- **doomgeneric**, the portable DOOM engine (GPL-2.0): https://github.com/ozkl/doomgeneric. You need the files in its `doomgeneric/` folder.
+- **doomgeneric**, the portable DOOM engine (GPL-2.0): https://github.com/ozkl/doomgeneric. You need the files in its `doomgeneric/` folder. The exact source the cartridge was built from (commit `e257a09`) is in [`third_party/doomgeneric/`](../third_party/doomgeneric/).
 - **An IWAD.** [Freedoom](https://freedoom.github.io/) Phase 1 (`freedoom1.wad`, BSD licence) is free and works. The shareware `doom1.wad` works too, and so does your own copy of `doom.wad`.
 
 ## Steps
@@ -51,7 +55,8 @@ A DOOM frame costs about 6 million TabComp instructions.
 
 - TabComp is MIT.
 - doomgeneric, and any program or cartridge built from it, is GPL-2.0. `export /bin/doom DOOM --gpl` writes the GPL notice and source pointer into the cartridge.
-- A cartridge carries every `.wad` on the disk. If you share one with `freedoom1.wad` inside, include Freedoom's BSD licence notice.
+- A cartridge carries every `.wad` on the disk. From 1.3.1, the exporter writes Freedoom's BSD licence notice into any cartridge carrying a Freedoom WAD, and the GPL notice says where the engine and platform-layer source live.
+- `cartridges/DOOM.html` is GPL-2.0 (with Freedoom's BSD-licensed WAD inside). Its source: `third_party/doomgeneric/` (commit `e257a09`) plus `/src/doom/doomgeneric_tabcomp.c` on the disk in `index.html`.
 - Never share a cartridge containing id Software's commercial WADs.
 
 ## How it was tested

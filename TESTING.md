@@ -12,6 +12,8 @@ node tests/pacing.mjs [file] [throttle] [clock]   # Breakout ball speed in pixel
 node tests/tabpad.mjs [cartridge]              # the cartridge game pad, as a touch phone
 node tests/gamespeed.mjs [file]                # Breakout game speed from its own physics counter
 node tests/doom.mjs <file> <doomgeneric/doomgeneric> <freedoom1.wad> [seconds] [out.png]
+                                               # e.g. third_party/doomgeneric/doomgeneric
+node tests/doomcart.mjs [cartridge] [out]       # the DOOM cartridge plays
                                                # build real DOOM on the TabComp CPU, then run it
 ```
 
@@ -29,12 +31,13 @@ Argon's 1.3 adds a C toolchain written in TabTalk (`c89`, `cpp`, `cc1`, `ld`, `l
 | Boots, finds `freedoom1.wad`, plays the demo for 30 s without an error | ✗ | ✓ |
 | Frames presented, headless, unthrottled | | 63–70 per second |
 | Same thing in the real page: Import button → one `c89` command → `doom`, then menu, walk, fire with the keyboard | | ✓ |
+| `cartridges/DOOM.html` (exported with `export /bin/doom DOOM --gpl`): boots into DOOM, menu, E1M1, walk, fire, no errors (`tests/doomcart.mjs`) | | ✓ (page loads in under 1 s) |
 
 1.3's `doombench` cartridge is Argon's own DOOM-style renderer benchmark (it reads `PLAYPAL`/`COLORMAP` from a WAD), not id's DOOM engine. 1.3.1 is the first version that runs the DOOM engine.
 
 Speed of real DOOM under the clock governor (in the real page loop, game time stays real-time; DOOM draws fewer frames at slower clocks): TURBO about 28 fps, `clock 200` 34 fps (DOOM caps at 35), `clock 100` 16 fps, `clock 50` 8 fps, `clock 25` 4 fps. A frame of DOOM costs about 6 million TabComp instructions.
 
-### Bugs found by building DOOM, all fixed in 1.3.1
+### Bugs found by building DOOM, all fixed in 1.3.1 (plus one exporter change)
 
 Each was reduced to a small C file and checked against gcc on the host. DOOM's `info.c` tables (states, mobjinfo, sprite names) now checksum identically to gcc's. Most failed silently, which is the worst kind of compiler bug: the program builds and then does the wrong thing.
 
@@ -49,7 +52,8 @@ Each was reduced to a small C file and checked against gcc on the host. DOOM's `
 9. **Unsized local arrays were guessed** at 64 bytes (strings) or 32 elements (anything else). They are now sized from the initializer.
 10. **An undeclared identifier silently became an external symbol** and failed at link time. It is now a compile error; calling an undeclared function is still allowed, as C89 says.
 11. `errno.h` lacked `EISDIR` and most other standard codes.
-12. **Keys typed at the shell replayed into the next program that reads raw keys** (DOOM opened its own Options menu), and keys pressed in such a program replayed into the shell after it exited. A program now starts with no stale key events.
+12. **Cartridges** now say where the GPL source lives, and carry Freedoom's BSD notice when they carry its WAD.
+13. **Keys typed at the shell replayed into the next program that reads raw keys** (DOOM opened its own Options menu), and keys pressed in such a program replayed into the shell after it exited. A program now starts with no stale key events.
 
 The rebuilt `cpp`, `cc1`, `c89` and `ld` were compiled by TabComp's own `/bin/cc` from the patched sources on its disk. Readable diffs are in [`patches/1.3.1/`](patches/1.3.1/).
 

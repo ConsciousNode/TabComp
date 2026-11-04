@@ -46,3 +46,35 @@
              if (this.jit) this.jit.invalidateAll();
              this.ram.set(saved.ram, 0);
              this.reg.set(saved.reg);
+@@ -3767,6 +3772,7 @@
+   }
+ 
+   // Extract /*@@PLAYER_BEGIN*/ ... /*@@PLAYER_END*/ from PRISTINE_CORE to build standalone Cartridge HTML
++  const FREEDOOM_NOTICE = "  Copyright © 2001-2024\n  Contributors to the Freedoom project.  All rights reserved.\n\n  Redistribution and use in source and binary forms, with or without\n  modification, are permitted provided that the following conditions are\n  met:\n\n    * Redistributions of source code must retain the above copyright\n      notice, this list of conditions and the following disclaimer.\n    * Redistributions in binary form must reproduce the above copyright\n      notice, this list of conditions and the following disclaimer in the\n      documentation and/or other materials provided with the distribution.\n    * Neither the name of the Freedoom project nor the names of its\n      contributors may be used to endorse or promote products derived from\n      this software without specific prior written permission.\n\n  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS\n  IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED\n  TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A\n  PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER\n  OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,\n  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,\n  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR\n  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF\n  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING\n  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS\n  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n\n  For a list of contributors to the Freedoom project, see the file\n  CREDITS.";
+   function generateCartridgeHTML(binPath, title, forceGpl) {
+     let rawTitle = String(title || "TabComp Game");
+     let isGpl = !!forceGpl;
+@@ -3811,15 +3817,22 @@
+         '  ConsciousNode SoftWorks). As a combined work containing GPL-2.0 program\n' +
+         '  binaries, this cartridge file is distributed under the terms of the\n' +
+         '  GNU General Public License v2.0 (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).\n' +
+-        '  Source code: https://github.com/ozkl/doomgeneric and /src/doom/ inside TabComp.\n' +
++        '  Source code: https://github.com/ozkl/doomgeneric (engine) and /src/doom/doomgeneric_tabcomp.c\n' +
++        '  (platform layer) in TabComp, https://github.com/ConsciousNode/TabComp\n' +
+         '-->\n'
+       : '';
++    // 1.3.1 (Kehai): Freedoom's licence asks that its notice travel with the WAD.
++    let freedoomNote = '';
++    for (const k of cartFS.files.keys()) {
++      if (/freedoom[^/]*\.wad$/i.test(k)) { freedoomNote = '<!--\n  ' + k + ' is Freedoom (https://freedoom.github.io/):\n\n' + FREEDOOM_NOTICE + '\n\n  (CREDITS: https://github.com/freedoom/freedoom/blob/master/CREDITS)\n-->\n'; break; }
++    }
+     const subNotice = isGpl
+       ? 'A TabComp™ Production • GPL-2.0 (DOOM / ConsciousNode SoftWorks)'
+       : 'A TabComp™ Production • ConsciousNode SoftWorks';
+ 
+     return '<!DOCTYPE html>\n' +
+       gplHeader +
++      freedoomNote +
+       '<html lang="en">\n' +
+       '<head>\n' +
+       '<meta charset="utf-8">\n' +
