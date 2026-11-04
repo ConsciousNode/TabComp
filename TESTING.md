@@ -1,6 +1,6 @@
 # Testing TabComp™
 
-Independent verification by **Kehai Interim**, 2026-11-03, in headless Chromium (Playwright). Everything here can be rerun:
+Independent verification by **Kehai Interim**, 2026-11-03 (1.3 and 1.3.1: 2026-11-04), in headless Chromium (Playwright). Everything here can be rerun:
 
 ```
 npm i playwright            # or use a global install
@@ -11,7 +11,55 @@ node tests/tabkey.mjs [file]                   # the on-screen keyboard, as a to
 node tests/pacing.mjs [file] [throttle] [clock]   # Breakout ball speed in pixels per second
 node tests/tabpad.mjs [cartridge]              # the cartridge game pad, as a touch phone
 node tests/gamespeed.mjs [file]                # Breakout game speed from its own physics counter
+node tests/doom.mjs <file> <doomgeneric/doomgeneric> <freedoom1.wad> [seconds] [out.png]
+                                               # build real DOOM on the TabComp CPU, then run it
 ```
+
+## 1.3 and 1.3.1: It Runs DOOM (2026-11-04)
+
+Argon's 1.3 adds a C toolchain written in TabTalk (`c89`, `cpp`, `cc1`, `ld`, `libc`). The real test of a C compiler is a big real program, so `tests/doom.mjs` takes [doomgeneric](https://github.com/ozkl/doomgeneric) (81 files, 73,140 lines, unmodified) and the [Freedoom](https://freedoom.github.io/) Phase 1 IWAD (BSD licence), compiles every file with `/bin/c89` on the TabComp CPU, links with `/bin/ld`, and runs the result for 30 seconds.
+
+| Check | 1.3 (as delivered) | 1.3.1 |
+|---|---|---|
+| Self-test | 19/19 | 19/19 |
+| Save identity, heredity, tamper (`KEHA`), boot, no network | ✓ (same lost newline, restored) | ✓ byte for byte |
+| TabKey, TabPad, Breakout torn frames (0), Breakout game speed | ✓ | ✓ |
+| doomgeneric files that compile on the TabComp CPU | **77/81** | **81/81** (23 s) |
+| Links into `/bin/doom` | ✗ | ✓ 860,904 bytes |
+| Boots, finds `freedoom1.wad`, plays the demo for 30 s without an error | ✗ | ✓ |
+| Frames presented, headless, unthrottled | | 63–70 per second |
+| Same thing in the real page: Import button → one `c89` command → `doom`, then menu, walk, fire with the keyboard | | ✓ |
+
+1.3's `doombench` cartridge is Argon's own DOOM-style renderer benchmark (it reads `PLAYPAL`/`COLORMAP` from a WAD), not id's DOOM engine. 1.3.1 is the first version that runs the DOOM engine.
+
+Speed of real DOOM under the clock governor (in the real page loop, game time stays real-time; DOOM draws fewer frames at slower clocks): TURBO about 28 fps, `clock 200` 34 fps (DOOM caps at 35), `clock 100` 16 fps, `clock 50` 8 fps, `clock 25` 4 fps. A frame of DOOM costs about 6 million TabComp instructions.
+
+### Bugs found by building DOOM, all fixed in 1.3.1
+
+Each was reduced to a small C file and checked against gcc on the host. DOOM's `info.c` tables (states, mobjinfo, sprite names) now checksum identically to gcc's. Most failed silently, which is the worst kind of compiler bug: the program builds and then does the wrong thing.
+
+1. **`cpp` cut every source file at 131,000 bytes, silently.** `info.c` is 139,548 bytes. Now 262,000 bytes, and a larger file is an error.
+2. **`cpp` could not take macro arguments that span lines** (`d_main.c`).
+3. **`cc1` rejected `char x[] = "text";` at file scope** (`i_video.c`).
+4. **`cc1` rejected nested braces in local initializers** (`wi_stuff.c`). Local struct and 2-D array initializers are now built as a constant template in `.data` and copied in.
+5. **`cc1` cut string literals at 2,046 bytes, silently.** Now 16,382, and longer is an error.
+6. **`c89` dropped every input file after the 64th, silently**, so DOOM linked from 64 of its 81 objects (`undefined symbol: I_VideoBuffer`). It also cut `@filelist`s at 4 KB and reused temporary object names after 16 files. Now 256 inputs, 16 KB lists, overflow is an error, and a long link line goes to `ld` as a response file (a program only receives about 2 KB of arguments).
+7. **A cast inside an initializer clobbered the declaration it initialized.** `NULL` is `((void*)0)`, so `static char *f = NULL;` lost its name, and `default_t list[] = { ..., NULL, ... }` lost its array size. DOOM's config table had 1 entry instead of 120 (`Unknown configuration variable`).
+8. **`extern char *names[];` was compiled as a pointer, not an array**, so another file reading it got bytes of the first string. DOOM died with `invalid sprite number 78` as the demo started.
+9. **Unsized local arrays were guessed** at 64 bytes (strings) or 32 elements (anything else). They are now sized from the initializer.
+10. **An undeclared identifier silently became an external symbol** and failed at link time. It is now a compile error; calling an undeclared function is still allowed, as C89 says.
+11. `errno.h` lacked `EISDIR` and most other standard codes.
+12. **Keys typed at the shell replayed into the next program that reads raw keys** (DOOM opened its own Options menu), and keys pressed in such a program replayed into the shell after it exited. A program now starts with no stale key events.
+
+The rebuilt `cpp`, `cc1`, `c89` and `ld` were compiled by TabComp's own `/bin/cc` from the patched sources on its disk. Readable diffs are in [`patches/1.3.1/`](patches/1.3.1/).
+
+### What the C compiler still does not do (LANGUAGE.md overclaims)
+
+- **`long long` is 32 bits.** `sizeof(long long)` is 4 and it wraps at 2³¹. The only 64-bit arithmetic is the fixed-point patterns that lower to `FXMUL`/`MULH` (`((int64_t)a * b) >> 16`) and `FXDIV` (`((int64_t)a << 16) / b`), which is what DOOM's `FixedMul`/`FixedDiv` need.
+- `float` and `double` are 16.16 fixed point, as documented (`0.1 * 100` is 9).
+- Bit-field widths are ignored: each field takes a whole `int` (so `sizeof` differs from gcc, but values in range work).
+- Fixed tables in `cc1` (2,048 globals, struct fields, enum values per file) and in `ld` (16,384 symbols, 65,536 relocations, 256 objects; these now report an error instead of overflowing).
+- Small structs passed and returned by value do work.
 
 ## Results
 

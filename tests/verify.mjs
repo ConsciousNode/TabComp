@@ -24,7 +24,10 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tabcomp-'));
 let fails = 0; const check = (ok, msg) => { console.log((ok ? 'ok   ' : 'FAIL ') + msg); if (!ok) fails++; };
 
 const DISK_RE = /(<script type="application\/x-tabcomp-disk" id="tc-disk">)([\s\S]*?)(<\/script>)/;
-const readDisk = html => JSON.parse(Buffer.from(html.match(DISK_RE)[2].trim(), 'base64').toString('utf8'));
+// 1.0-1.2.2 store the disk as base64-wrapped JSON; 1.3 stores the JSON directly.
+const diskIsJson = html => html.match(DISK_RE)[2].trim().startsWith('{');
+const readDisk = html => { const t = html.match(DISK_RE)[2].trim(); return JSON.parse(t.startsWith('{') ? t : Buffer.from(t, 'base64').toString('utf8')); };
+const writeDisk = (html, disk) => html.replace(DISK_RE, (_, a, b, c) => a + (diskIsJson(html) ? JSON.stringify(disk) : Buffer.from(JSON.stringify(disk)).toString('base64')) + c);
 const fileOf = (disk, p) => disk.files[p] ? Buffer.from(disk.files[p], 'base64') : null;
 
 const br = await chromium.launch();
@@ -65,8 +68,7 @@ const anchor = '  int outFd = fopen(outPath, 1);';
 check(cc.split(anchor).length === 2, 'tamper anchor found once in /src/cc.tt');
 cc = cc.replace(anchor, '  emit32(0x4148454B); // KEHA tamper test\n' + anchor);
 disk.files['/src/cc.tt'] = Buffer.from(cc, 'utf8').toString('base64');
-const m = orig.match(DISK_RE);
-const tampered = orig.replace(DISK_RE, m[1] + Buffer.from(JSON.stringify(disk)).toString('base64') + m[3]);
+const tampered = writeDisk(orig, disk);
 const tf = path.join(tmp, 'tampered.html'); fs.writeFileSync(tf, tampered);
 const pt = await boot(tf);
 await pt.type1('rebootstrap', 6000);

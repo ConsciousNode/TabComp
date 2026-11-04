@@ -1,0 +1,89 @@
+--- a/src/ld.tt
++++ b/src/ld.tt
+@@ -58,6 +58,7 @@
+ int modCount;
+ 
+ byte* objBuf;
++byte ldListFile[16384]; // 1.3.1: @filelist contents (was 8 KB on the stack, silently truncated)
+ 
+ int ld_error(byte* msg, byte* detail) {
+   puts("ld error: ");
+@@ -119,6 +120,7 @@
+ int get_or_create_global_sym(byte* name) {
+   int idx = find_global_sym(name);
+   if (idx >= 0) return idx;
++  if (ldSymCount >= 16384) ld_error("too many symbols (limit 16384)", name);
+   idx = ldSymCount;
+   ldSymCount++;
+   int h = hash_sym(name);
+@@ -131,6 +133,7 @@
+ }
+ 
+ int create_local_sym(byte* name, int kind, int val) {
++  if (ldSymCount >= 16384) ld_error("too many symbols (limit 16384)", name);
+   int idx = ldSymCount;
+   ldSymCount++;
+   ldSymName[idx] = alloc_sym_str(name);
+@@ -158,6 +161,11 @@
+   int relCnt   = read_i32(objBuf + 20);
+   int strSz    = read_i32(objBuf + 24);
+ 
++  if (modCount >= 256) ld_error("too many object files (limit 256)", path);
++  if (symCnt > 4096) ld_error("object has more than 4096 symbols", path);
++  if (totalText + codeSz > 0x100000) ld_error("combined .text exceeds 1 MiB", path);
++  if (totalData + dataSz > 0x100000) ld_error("combined .data exceeds 1 MiB", path);
++  if (relCount + relCnt > 65536) ld_error("too many relocations (limit 65536)", path);
+   int m = modCount;
+   modCount++;
+   int tBase = totalText;
+@@ -307,7 +315,7 @@
+     byte tok[64];
+     int k = 0;
+     while (args[p] != 0 && args[p] != 32) {
+-      if (k < 62) { tok[k] = args[p]; k++; }
++      if (k < 62) { tok[k] = args[p]; k++; } else ld_error("argument longer than 62 characters", "");
+       p++;
+     }
+     tok[k] = 0;
+@@ -315,7 +323,7 @@
+       while (args[p] == 32) p++;
+       k = 0;
+       while (args[p] != 0 && args[p] != 32) {
+-        if (k < 62) { outPath[k] = args[p]; k++; }
++        if (k < 62) { outPath[k] = args[p]; k++; } else ld_error("output path longer than 62 characters", "");
+         p++;
+       }
+       outPath[k] = 0;
+@@ -323,9 +331,12 @@
+       // @response_file containing list of .o paths
+       int lfd = fopen(tok + 1, 0);
+       if (lfd < 0) ld_error("cannot open filelist", tok + 1);
+-      byte lbuf[8192];
+-      int ln = fread(lfd, lbuf, 8190);
++      byte* lbuf = ldListFile;
++      int ln = fread(lfd, lbuf, 16380);
++      int lmore = fread(lfd, lbuf + 16380, 1);
+       fclose(lfd);
++      if (lmore > 0) ld_error("filelist larger than 16380 bytes", tok + 1);
++      if (ln < 0) ln = 0;
+       lbuf[ln] = 0;
+       int lp = 0;
+       while (lbuf[lp] != 0) {
+@@ -334,7 +345,7 @@
+         byte oitem[64];
+         int ok = 0;
+         while (lbuf[lp] != 0 && lbuf[lp] != 32 && lbuf[lp] != 10 && lbuf[lp] != 13 && lbuf[lp] != 9) {
+-          if (ok < 62) { oitem[ok] = lbuf[lp]; ok++; }
++          if (ok < 62) { oitem[ok] = lbuf[lp]; ok++; } else ld_error("object path longer than 62 characters", "");
+           lp++;
+         }
+         oitem[ok] = 0;
+@@ -352,6 +363,8 @@
+   // Finalize section addresses
+   int dataBaseAddr = (totalText + 15) & ~15;
+   int bssBaseAddr  = BSS_BASE_ADDR;
++  // 1.3.1: the loader writes program arguments at 0x0DF000, so the image must end below it.
++  if (dataBaseAddr + totalData > 0x0DF000) ld_error("program image (.text + .data) exceeds 0x0DF000 bytes", "");
+ 
+   // Allocate COMMON symbols in .bss and convert all symbol values to final addresses
+   int s = 0;

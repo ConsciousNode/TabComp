@@ -38,7 +38,10 @@ const a = await snap(); await p0.waitForTimeout(2000); const b = await snap();
 await p0.close();
 const secs = (b.t - a.t) / 1000;
 let addr = null;
-for (let i = 0; i < a.w.length; i++) { const r = (b.w[i] - a.w[i]) / secs; if (r > 50 && r < 75) { addr = 0x50000 + i * 4; break; } }
+// Pick the word whose rate is closest to 62.5/s (TabBreakout has another counter near 72/s,
+// so taking the first word in a range can pick the wrong one).
+let best = 1e9;
+for (let i = 0; i < a.w.length; i++) { const r = (b.w[i] - a.w[i]) / secs; if (r > 50 && r < 75 && Math.abs(r - 62.5) < best) { best = Math.abs(r - 62.5); addr = 0x50000 + i * 4; } }
 if (addr === null) { console.log('FAIL could not find the physics step counter'); await br.close(); process.exit(1); }
 console.log(`physics step counter found at 0x${addr.toString(16)}`);
 

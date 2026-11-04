@@ -236,7 +236,7 @@
 (function() {
   "use strict";
 
-  const VERSION = "1.3";
+  const VERSION = "1.3.1";
   // Base64 helpers (browser + Node compatible, chunked for multi-MiB WAD files)
   function u8ToB64(u8) {
     const len = u8.length;
@@ -1301,6 +1301,8 @@
       if (this.jit) this.jit.invalidateAll();
       this.ram.fill(0, 0, 0x0E0000);
       this.ram.set(bytes, 0);
+      this.keyEventQueue.length = 0; // 1.3.1 (Kehai): a new program starts with no stale raw key events
+      this.heldKeyCodes.clear();
       this.writeStr(0x0DF000, argStr, 2040);
       this.reg.fill(0);
       this.reg[13] = 0x0DF000;
@@ -1628,6 +1630,9 @@
           const code = r[0];
           if (this.procStack.length > 0) {
             const saved = this.procStack.pop();
+            if (this.rawKeyMode) this.keyQueue.length = 0; // 1.3.1 (Kehai): keys pressed in a raw-key program are not shell input
+            this.keyEventQueue.length = 0;
+            this.heldKeyCodes.clear();
             if (this.jit) this.jit.invalidateAll();
             this.ram.set(saved.ram, 0);
             this.reg.set(saved.reg);

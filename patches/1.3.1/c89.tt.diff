@@ -1,0 +1,133 @@
+--- a/src/c89.tt
++++ b/src/c89.tt
+@@ -12,13 +12,15 @@
+ const PP_BUF_ADDR  = 0x0110000;
+ 
+ byte args[2048];
+-byte inFiles[4096]; // 64 * 64
++byte inFiles[16384]; // 256 * 64 (1.3.1: was 64; overflow is now an error)
+ int inCount;
+ 
+-byte tmpObjs[1024]; // 16 * 64
++byte tmpObjs[16384]; // 256 * 64 (1.3.1: was 16, later temp names collided)
+ int tmpCount;
+ 
+-byte ldListBuf[8192];
++byte ldListBuf[20480];
++byte listFileBuf[16384]; // 1.3.1: @filelist contents (was 4 KB on the stack, silently truncated)
++int listDepth;
+ int ldListLen;
+ 
+ byte incList[1024]; // 16 * 64
+@@ -39,7 +41,17 @@
+   return strcmp(s + sl - fl, suf) == 0;
+ }
+ 
++int c89_fatal(byte* msg, byte* detail) {
++  puts("c89: ");
++  puts(msg);
++  puts(detail);
++  puts("\n");
++  exit(1);
++  return 0;
++}
++
+ int append_ld_arg(byte* s) {
++  if (ldListLen + strlen(s) + 2 >= 20480) c89_fatal("too many linker inputs", "");
+   if (ldListLen > 0) {
+     ldListBuf[ldListLen] = 32;
+     ldListLen++;
+@@ -65,13 +77,13 @@
+     if (buf[p] == 34) {
+       p++;
+       while (buf[p] != 0 && buf[p] != 34) {
+-        if (k < 62) { tok[k] = buf[p]; k++; }
++        if (k < 62) { tok[k] = buf[p]; k++; } else c89_fatal("argument longer than 62 characters", "");
+         p++;
+       }
+       if (buf[p] == 34) p++;
+     } else {
+       while (buf[p] != 0 && buf[p] != 32 && buf[p] != 9 && buf[p] != 10 && buf[p] != 13) {
+-        if (k < 62) { tok[k] = buf[p]; k++; }
++        if (k < 62) { tok[k] = buf[p]; k++; } else c89_fatal("argument longer than 62 characters", "");
+         p++;
+       }
+     }
+@@ -129,16 +141,20 @@
+         puts("\n");
+         exit(1);
+       }
+-      byte fbuf[4096];
+-      int fn = fread(lfd, fbuf, 4090);
++      if (listDepth > 0) c89_fatal("nested @filelist not supported: ", tok + 1);
++      int fn = fread(lfd, listFileBuf, 16380);
++      int more = fread(lfd, listFileBuf + 16380, 1);
+       fclose(lfd);
+-      fbuf[fn] = 0;
+-      parse_arg_stream(fbuf);
++      if (more > 0) c89_fatal("@filelist larger than 16380 bytes: ", tok + 1);
++      if (fn < 0) fn = 0;
++      listFileBuf[fn] = 0;
++      listDepth = 1;
++      parse_arg_stream(listFileBuf);
++      listDepth = 0;
+     } else {
+-      if (inCount < 64) {
+-        strcpy(inFiles + inCount * 64, tok);
+-        inCount++;
+-      }
++      if (inCount >= 256) c89_fatal("more than 256 input files", "");
++      strcpy(inFiles + inCount * 64, tok);
++      inCount++;
+     }
+   }
+   return 0;
+@@ -189,6 +205,7 @@
+ 
+ int main() {
+   inCount = 0;
++  listDepth = 0;
+   tmpCount = 0;
+   ldListLen = 0;
+   ldListBuf[0] = 0;
+@@ -241,10 +258,8 @@
+       itoa(tmpCount, nbuf);
+       strcat(tmpName, nbuf);
+       strcat(tmpName, ".o");
+-      if (tmpCount < 16) {
+-        strcpy(tmpObjs + tmpCount * 64, tmpName);
+-        tmpCount++;
+-      }
++      strcpy(tmpObjs + tmpCount * 64, tmpName);
++      tmpCount++;
+       compile_one_c(f, tmpName);
+       append_ld_arg(tmpName);
+     }
+@@ -262,10 +277,26 @@
+   if (outPath[0] == 0) {
+     strcpy(outPath, "/bin/a.out");
+   }
++  int objListLen = ldListLen;
+   append_ld_arg("-o");
+   append_ld_arg(outPath);
+ 
+-  int ldRc = exec("/bin/ld", ldListBuf);
++  // 1.3.1: GETARGS hands a program at most ~2 KB of arguments, so a long
++  // link line goes to /bin/ld as a response file instead of being cut off.
++  int ldRc = 0;
++  if (ldListLen > 1900) {
++    int rfd = fopen("/home/_c89_ld.rsp", 1);
++    if (rfd < 0) c89_fatal("cannot write linker response file", "");
++    fwrite(rfd, ldListBuf, objListLen);
++    fclose(rfd);
++    byte ldCmd[128];
++    strcpy(ldCmd, "@/home/_c89_ld.rsp -o ");
++    strcat(ldCmd, outPath);
++    ldRc = exec("/bin/ld", ldCmd);
++    fdelete("/home/_c89_ld.rsp");
++  } else {
++    ldRc = exec("/bin/ld", ldListBuf);
++  }
+ 
+   // Clean up temporary .o files
+   int t = 0;

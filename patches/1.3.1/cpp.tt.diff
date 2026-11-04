@@ -1,0 +1,65 @@
+--- a/src/cpp.tt
++++ b/src/cpp.tt
+@@ -21,8 +21,8 @@
+ const MAC_BUSY_ADDR  = 0x0325000; // 4096 ints
+ const MAC_POOL_ADDR  = 0x0330000; // 512 KB string pool
+ const ONCE_TAB_ADDR  = 0x03B0000; // 128 * 64-byte #pragma once paths
+-const FILE_STK_ADDR  = 0x03B8000; // 10 levels * 131072 bytes per file buffer
+-const EXP_BUF_ADDR   = 0x04E0000; // 128 KB macro expansion work space
++const FILE_STK_ADDR  = 0x03B8000; // 10 levels * 262144 bytes per file buffer (1.3.1: was 131072)
++const EXP_BUF_ADDR   = 0x0640000; // 128 KB macro expansion work space (1.3.1: moved above the larger file buffers)
+ 
+ byte* ppBuf;
+ int ppLen;
+@@ -755,8 +755,11 @@
+ 
+   int fd = fopen(filePath, 0);
+   if (fd < 0) pp_error(filePath);
+-  byte* raw = FILE_STK_ADDR + depth * 131072;
+-  int n = fread(fd, raw, 131000);
++  byte* raw = FILE_STK_ADDR + depth * 262144;
++  int n = fread(fd, raw, 262000);
++  // 1.3.1: a source file that doesn't fit used to be silently truncated; now it's an error
++  byte probe[4];
++  if (n >= 262000 && fread(fd, probe, 1) > 0) { fclose(fd); pp_error("source file larger than 262000 bytes"); }
+   fclose(fd);
+   raw[n] = 0;
+ 
+@@ -778,6 +781,10 @@
+   while (pos < n) {
+     int lineStart = curLine;
+     int lLen = 0;
++    int parenDepth = 0;   // 1.3.1: open parentheses on this logical line, outside literals
++    int sawCode = 0;      // 1.3.1: first non-space character seen
++    int isDirectiveLn = 0;
++    int joined = 0;
+     // Read one logical line (splicing backslash-newlines and stripping comments)
+     while (pos < n) {
+       int c = raw[pos];
+@@ -807,11 +814,26 @@
+       if (c == 10) {
+         curLine++;
+         pos++;
++        // 1.3.1: a non-directive line with an unclosed '(' continues on the next line
++        // (multi-line macro arguments). Never join into a line that starts with '#'.
++        if (parenDepth > 0 && !isDirectiveLn && joined < 64 && pos < n) {
++          int q2 = pos;
++          while (q2 < n && (raw[q2] == 32 || raw[q2] == 9 || raw[q2] == 13)) q2++;
++          if (q2 < n && raw[q2] != 35) {
++            if (lLen < 8180) { lineBuf[lLen] = 32; lLen++; }
++            joined++;
++            continue;
++          }
++        }
+         break;
+       }
++      if (!sawCode && c != 32 && c != 9) { sawCode = 1; if (c == 35) isDirectiveLn = 1; }
++      if (c == 40) parenDepth++;
++      if (c == 41 && parenDepth > 0) parenDepth--;
+       // String or char literal: copy intact without stripping // or /* inside quotes
+       if (c == 34 || c == 39) {
+         int q = c;
++        sawCode = 1;
+         if (lLen < 8180) { lineBuf[lLen] = raw[pos]; lLen++; }
+         pos++;
+         while (pos < n && raw[pos] != q && raw[pos] != 10) {

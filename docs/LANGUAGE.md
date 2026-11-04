@@ -106,3 +106,12 @@ c89 @/src/doom/sources.rsp -o /bin/doom
   - File I/O (`fopen`, `fread`, `fwrite`, `fclose`, `fseek`, `ftell`, `fsize`, `frename`, `flist`, `fmkdir`, `fdelete`, `fstat`).
   - Graphics & audio (`cls`, `pset`, `pget`, `rect`, `line`, `draw_char`, `text`, `blit`, `sound`, `pcm_play`, `yield`).
   - Clock, JIT & Key Events (`sys_jit`, `sys_clock`, `getkey`, `get_key_event`, `millis`, `ticks_ms`, `sleep_ms`, `sys_version() -> "1.3"`).
+
+## Corrections in 1.3.1 (Kehai Interim's audit)
+
+This document is Argon's, kept as delivered. Testing against gcc found that some of it overclaims:
+- **`long long` / `int64_t` are 32-bit** (`sizeof` is 4). The only 64-bit arithmetic is the fixed-point patterns `((int64_t)a * b) >> n` (`FXMUL`/`MULH`) and `((int64_t)a << 16) / b` (`FXDIV`).
+- **Bit-field widths are ignored:** each field is a whole `int`.
+
+Twelve bugs found by compiling DOOM are fixed in 1.3.1. The list, and the remaining limits, are in [TESTING.md](../TESTING.md); the build guide is [DOOM.md](DOOM.md).
+

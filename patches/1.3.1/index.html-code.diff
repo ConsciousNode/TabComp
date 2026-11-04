@@ -1,0 +1,48 @@
+--- a/index.html
++++ b/index.html
+@@ -4,7 +4,7 @@
+ <meta charset="utf-8">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; worker-src blob:">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-<title>TabComp™ 1.3 — The Computer That Fits In Your Tab!</title>
++<title>TabComp™ 1.3.1 — The Computer That Fits In Your Tab!</title>
+ <style id="tc-style">
+   * { box-sizing: border-box; margin: 0; padding: 0; }
+   body {
+@@ -237,7 +237,7 @@
+ <div class="tc-chassis">
+   <div class="tc-header">
+     <div class="tc-brand">
+-      <span class="tc-logo">TabComp™ 1.3</span>
++      <span class="tc-logo">TabComp™ 1.3.1</span>
+       <span class="tc-sub">ConsciousNode SoftWorks • 16,777,216 BYTES FREE</span>
+     </div>
+     <div class="tc-controls">
+@@ -266,7 +266,7 @@
+   const PRISTINE_CORE = document.getElementById("tc-core").textContent;
+ 
+   /*@@PLAYER_BEGIN*/
+-  const VERSION = "1.3";
++  const VERSION = "1.3.1";
+   // Base64 helpers (browser + Node compatible, chunked for multi-MiB WAD files)
+   function u8ToB64(u8) {
+     const len = u8.length;
+@@ -1331,6 +1331,8 @@
+       if (this.jit) this.jit.invalidateAll();
+       this.ram.fill(0, 0, 0x0E0000);
+       this.ram.set(bytes, 0);
++      this.keyEventQueue.length = 0; // 1.3.1 (Kehai): a new program starts with no stale raw key events
++      this.heldKeyCodes.clear();
+       this.writeStr(0x0DF000, argStr, 2040);
+       this.reg.fill(0);
+       this.reg[13] = 0x0DF000;
+@@ -1658,6 +1660,9 @@
+           const code = r[0];
+           if (this.procStack.length > 0) {
+             const saved = this.procStack.pop();
++            if (this.rawKeyMode) this.keyQueue.length = 0; // 1.3.1 (Kehai): keys pressed in a raw-key program are not shell input
++            this.keyEventQueue.length = 0;
++            this.heldKeyCodes.clear();
+             if (this.jit) this.jit.invalidateAll();
+             this.ram.set(saved.ram, 0);
+             this.reg.set(saved.reg);
